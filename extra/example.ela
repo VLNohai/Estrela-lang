@@ -1,0 +1,8 @@
+function c(x, y, z) -> string
+
+end
+
+x @number = 1;
+y @number = 2;
+z @number = 3;
+rez @string = c(x, y) .. 'string';
