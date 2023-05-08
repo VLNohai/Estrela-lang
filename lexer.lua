@@ -5,7 +5,7 @@ local open = io.open;
 local letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_';
 local numbers = '0123456789';
 local hexSymbols = 'abcdefABCDEF'
-local operator = '+-/%^#=~<>.:*@?'
+local operator = '+-/%^#=~<>.:*@?|'
 local marker = '(){}[];,';
 local whitespace = ' \n\t\r'
 local validEscapes = 'abfnrtvx"\'\\'

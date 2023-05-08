@@ -7,7 +7,11 @@ Generator = require('generator');
 
 Path = 'E:/estrela rep/estrela/extra/example.ela';
 
-AST = Parser.parse(Lexer.lex(Path));
-if (Semnatic.check(AST)) then
-    Generator.generate(AST);
+Lexems = Lexer.lex(Path);
+if Lexems then
+    AST = Parser.parse(Lexems);
+    if (Semnatic.check(AST)) then
+        Generator.generate(AST);
+    end
 end
+

@@ -75,7 +75,10 @@ Tokens.TokenType = {
     PROTECTED_KEYWORD = 67,
     THIS_KEYWORD = 68,
     QUESTION_OPERATOR = 69,
-    NEW_KEYWORD = 70
+    NEW_KEYWORD = 70,
+    CONCATENATION_OPERATOR = 71,
+    OUT_KEYWORD = 72,
+    LOGIC_KEYWORD = 73
 };
 
 Tokens.MapKeywords = {
@@ -113,7 +116,9 @@ Tokens.MapKeywords = {
     ['private'] = Tokens.TokenType.PRIVATE_KEYWORD,
     ['protected'] = Tokens.TokenType.PROTECTED_KEYWORD,
     ['this'] = Tokens.TokenType.THIS_KEYWORD,
-    ['new'] = Tokens.TokenType.NEW_KEYWORD
+    ['new'] = Tokens.TokenType.NEW_KEYWORD,
+    ['out'] = Tokens.TokenType.OUT_KEYWORD,
+    ['logic'] = Tokens.TokenType.LOGIC_KEYWORD
 }
 
 Tokens.MapOperators = {
@@ -141,7 +146,8 @@ Tokens.MapOperators = {
 
     ['->'] = Tokens.TokenType.ARROW_OPERATOR,
     ['@'] = Tokens.TokenType.AT_OPERATOR,
-    ['?'] = Tokens.TokenType.QUESTION_OPERATOR
+    ['?'] = Tokens.TokenType.QUESTION_OPERATOR,
+    ['|'] = Tokens.TokenType.CONCATENATION_OPERATOR
 }
 
 Tokens.MapMarkers = {
@@ -199,7 +205,10 @@ Tokens.NodeType = {
     PARAN_EXP_NODE = 42,
     UNEXP_NODE = 43,
     INSTANTIATION_NODE = 44,
-    TYPED_VAR_NODE = 45
+    TYPED_VAR_NODE = 45,
+    LOGIC_BLOCK_NODE = 46,
+    LOGIC_NAME_NODE = 47,
+    LOGIC_ARGS_NODE = 48
 }
 
 return Tokens;

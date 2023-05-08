@@ -387,6 +387,14 @@ function NODE.STAT()
     end
     INDEX = indexCpy;
 
+    matchedValues = { val = nil };
+    if SET(matchedValues, MATCH(TokenType.LOGIC_KEYWORD, TokenType.IDENTIFIER, NODE.LOGIC_NAMELIST)) and
+    OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_FUNC) and 
+    MATCH(TokenType.END_KEYWORD) then
+        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedValues.val[2].value, args =  matchedValues.val[3]};
+    end
+    INDEX = indexCpy;
+
     return false;
 end
 
@@ -766,7 +774,6 @@ function NODE.VALUE()
 
     local matchedValue = {val = nil};
     if SET(matchedValue, MATCH(TokenType.NIL_KEYWORD)) then
-        
         return {type = 'nil', value = matchedValue.val.value};
     end 
     if SET(matchedValue, MATCH(TokenType.FALSE_KEYWORD)) then
@@ -1108,6 +1115,156 @@ function NODE.UNOP()
     end
     INDEX = indexCpy;
 
+    return false;
+end
+
+function NODE.LOGIC_NAMELIST()
+    local indexCpy = INDEX;
+
+    local fistNameMatched = {val = nil};
+    local nameListMatched = {val = nil};
+    if SET(fistNameMatched, MATCH(TokenType.LEFT_PARAN_MARK, NODE.LOGIC_NAME)) and
+    SET(nameListMatched, OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_NAME)) and
+    MATCH(TokenType.RIGHT_PARAN_MARK) then
+        local nameList = {[1] = fistNameMatched.val[2]};
+        for index, value in ipairs(nameListMatched.val) do
+            nameList[#nameList+1] = value[2];
+        end
+        return nameList;
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
+function NODE.LOGIC_NAME()
+    local indexCpy = INDEX;
+
+    local matchedId = {val = nil};
+    local argType = {val = nil};
+    if (
+        SET(argType, MATCH(TokenType.IN_KEYWORD)) or
+        SET(argType, MATCH(TokenType.OUT_KEYWORD))
+    ) and
+    SET(matchedId, MATCH(TokenType.IDENTIFIER)) then
+        return {node = NodeType.LOGIC_NAME_NODE, id = matchedId.val.value, argType = argType.val.value};
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
+function NODE.LOGIC_FUNC()
+    local indexCpy = INDEX;
+
+    if MATCH(TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VAR) and
+    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VAR) and
+    MATCH(TokenType.RIGHT_PARAN_MARK) and
+    OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_STAT) and
+    MATCH(TokenType.END_KEYWORD) then
+        return {};
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
+function NODE.LOGIC_VAR()
+    local indexCpy = INDEX;
+
+    if MATCH(NODE.LOGIC_VALUE) then
+        return {};
+    end
+    INDEX = indexCpy;
+
+    if MATCH(TokenType.LEFT_BRACE_MARK, NODE.LOGIC_VALUE) and
+    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE) and
+    MATCH(TokenType.CONCATENATION_OPERATOR, TokenType.IDENTIFIER, TokenType.RIGHT_BRACE_MARK) then
+        return {};
+    end
+    INDEX = indexCpy;
+
+    if MATCH(TokenType.LEFT_BRACE_MARK, TokenType.RIGHT_BRACE_MARK) then
+        return {};
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
+function NODE.LOGIC_VALUE()
+    local indexCpy = INDEX;
+
+    if MATCH(TokenType.IDENTIFIER) then
+        return {};
+    end
+
+    if MATCH(TokenType.NUMBER_VALUE) then
+        return {};
+    end
+
+    if MATCH(TokenType.STRING_VALUE) then
+        return {};
+    end
+
+    return false;
+end
+
+function NODE.LOGIC_FUNCTION_CALL()
+    local indexCpy = INDEX;
+
+    if MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VAR) and
+    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VAR) and
+    MATCH(TokenType.RIGHT_PARAN_MARK) then
+        return {};
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
+function NODE.LOGIC_STAT()
+    local indexCpy = INDEX;
+    
+    if MATCH(TokenType.SEMICOLON_MARK) then
+        return {};
+    end
+
+    if MATCH(NODE.LOGIC_FUNCTION_CALL) then
+        return {};
+    end
+
+    if MATCH(TokenType.IDENTIFIER) and
+    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, TokenType.IDENTIFIER) and
+    MATCH(TokenType.ASSIGN_OPERATOR, NODE.LOGIC_VAR) and
+    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VAR) then
+        return {};
+    end
+    INDEX = indexCpy;
+
+    if MATCH(TokenType.IDENTIFIER, NODE.LOGIC_CHECKS, NODE.LOGIC_EXP) then
+        return {};
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
+function NODE.LOGIC_CHECKS()
+    if MATCH(TokenType.EQUALS_OPERATOR) or
+    MATCH(TokenType.NOT_EQUALS_OPERATOR) or
+    MATCH(TokenType.MORE_OPERATOR) or
+    MATCH(TokenType.LESS_OPERATOR) or
+    MATCH(TokenType.LESS_OR_EQUAL_OPERATOR) or
+    MATCH(TokenType.MORE_OR_EQUAL_OPERATOR) then
+        return {};
+    end
+end
+
+function NODE.LOGIC_EXP()
+    if MATCH(NODE.LOGIC_VALUE) then
+        return {};
+    end
     return false;
 end
 

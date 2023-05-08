@@ -1,8 +1,13 @@
-function c(x, y, z) -> string
-
+logic delete_number(in Number, in List, out Result)
+    (Nr, {}, {}) end
+    (Nr, {H|T}, Res)
+        Nr == H;
+        delete_number(Number, T, Res_rec);
+        Res = Res_rec;
+    end
+    (Nr, {H|T}, Res)
+        Nr ~= H;
+        delete_number(Number, T, Res_rec);
+        Res = {Number|Res_rec};
+    end
 end
-
-x @number = 1;
-y @number = 2;
-z @number = 3;
-rez @string = c(x, y) .. 'string';

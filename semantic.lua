@@ -305,7 +305,6 @@ local function declareFunction(func_stat)
         end
         if valid then
             Globals[func_stat.id[1]].args[#Globals[func_stat.id[1]].args + 1] = args;
-            
         end
     end
 end

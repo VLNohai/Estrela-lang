@@ -58,4 +58,8 @@ function utils.flatten(o)
     return o;
 end
 
+function utils.remove_first_n(tb, n)
+    return table.pack(table.unpack(tb, n + 1));
+end
+
 return utils;
