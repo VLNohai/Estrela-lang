@@ -62,4 +62,29 @@ function utils.remove_first_n(tb, n)
     return table.pack(table.unpack(tb, n + 1));
 end
 
+function utils.extractField(tb, fieldname)
+    local rez = {}
+    for index, elem in ipairs(tb) do
+        if elem[fieldname] then
+            rez[#rez+1] = elem[fieldname];
+        end
+    end
+    return rez;
+end
+
+function utils.listOfIdsToCommaString(tb, defaults_to_own_name)
+    local string = '';
+    local dton = nil;
+    if not defaults_to_own_name then
+        dton = '';
+    end
+    if #tb > 0 then
+        string = string .. tb[1].id .. (dton or (' or "' .. tb[1].id .. '"'));
+        for index, elem in ipairs(utils.remove_first_n(tb, 1)) do
+            string = string .. ', ' .. elem.id .. (dton or (' or "' .. elem.id .. '"'));
+        end
+    end
+    return string;
+end
+
 return utils;

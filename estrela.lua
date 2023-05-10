@@ -1,7 +1,7 @@
 Lexer = require('lexer');
 Tokens = require('tokens');
 Parser = require('parser');
-Utils = require('utils');
+local utils = require('prefabs.utils');
 Semnatic = require('semantic');
 Generator = require('generator');
 

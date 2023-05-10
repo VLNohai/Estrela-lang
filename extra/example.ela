@@ -1,5 +1,5 @@
-logic delete_number(in Number, in List, out Result)
-    (Nr, {}, {}) end
+logic Delete_number(Number, List, Result)
+    (Nr, {{{}}}, {}) end
     (Nr, {H|T}, Res)
         Nr == H;
         delete_number(Number, T, Res_rec);

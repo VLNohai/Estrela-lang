@@ -217,6 +217,24 @@ function MATCH(...)
     return astElements;
 end
 
+function ONE_OR_MORE(index, ...)
+    local indexCpy = INDEX;
+    local arg = {...}
+
+    local firstMatch = {val = nil};
+    local listMatch = {val = nil};
+    if SET(firstMatch, MATCH(table.unpack(arg))) and SET(listMatch, OPTIONAL_MULTIPLE(INDEX, table.unpack(arg))) then
+        local result = firstMatch.val;
+        for _, value in ipairs(listMatch) do
+            result[#result+1] = value;
+        end
+        return result;
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
 function NODE.CHUNK()
     local ast = MATCH(NODE.BLOCK);
     if ast and INDEX == #LEXEMS + 1 then
@@ -388,10 +406,11 @@ function NODE.STAT()
     INDEX = indexCpy;
 
     matchedValues = { val = nil };
+    local matchedFunctions = { val = nil };
     if SET(matchedValues, MATCH(TokenType.LOGIC_KEYWORD, TokenType.IDENTIFIER, NODE.LOGIC_NAMELIST)) and
-    OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_FUNC) and 
+    SET(matchedFunctions, OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_FUNC)) and 
     MATCH(TokenType.END_KEYWORD) then
-        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedValues.val[2].value, args =  matchedValues.val[3]};
+        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedValues.val[2].value, args =  matchedValues.val[3], funcs = matchedFunctions.val};
     end
     INDEX = indexCpy;
 
@@ -1142,12 +1161,8 @@ function NODE.LOGIC_NAME()
 
     local matchedId = {val = nil};
     local argType = {val = nil};
-    if (
-        SET(argType, MATCH(TokenType.IN_KEYWORD)) or
-        SET(argType, MATCH(TokenType.OUT_KEYWORD))
-    ) and
-    SET(matchedId, MATCH(TokenType.IDENTIFIER)) then
-        return {node = NodeType.LOGIC_NAME_NODE, id = matchedId.val.value, argType = argType.val.value};
+    if SET(matchedId, MATCH(TokenType.IDENTIFIER)) then
+        return { node = NodeType.LOGIC_NAME_NODE, id = matchedId.val.value };
     end
     INDEX = indexCpy;
 
@@ -1157,35 +1172,45 @@ end
 function NODE.LOGIC_FUNC()
     local indexCpy = INDEX;
 
-    if MATCH(TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VAR) and
-    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VAR) and
+    local matchedFirstVar = {val = nil};
+    local matchedVarList = {val = nil};
+    local matchedStats = {val = nil};
+    if SET(matchedFirstVar, MATCH(TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VALUE)) and
+    SET(matchedVarList, OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE)) and
     MATCH(TokenType.RIGHT_PARAN_MARK) and
-    OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_STAT) and
+    SET(matchedStats, OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_STAT)) and
     MATCH(TokenType.END_KEYWORD) then
-        return {};
+        local vars = {[1] = matchedFirstVar.val[2]};
+        for index, var in ipairs(matchedVarList.val) do
+            vars[#vars + 1] = var[2];
+        end
+        return { args = vars, };
     end
     INDEX = indexCpy;
 
     return false;
 end
 
-function NODE.LOGIC_VAR()
+function NODE.LOGIC_TABLE()
     local indexCpy = INDEX;
 
-    if MATCH(NODE.LOGIC_VALUE) then
-        return {};
-    end
-    INDEX = indexCpy;
-
-    if MATCH(TokenType.LEFT_BRACE_MARK, NODE.LOGIC_VALUE) and
-    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE) and
-    MATCH(TokenType.CONCATENATION_OPERATOR, TokenType.IDENTIFIER, TokenType.RIGHT_BRACE_MARK) then
-        return {};
-    end
-    INDEX = indexCpy;
-
     if MATCH(TokenType.LEFT_BRACE_MARK, TokenType.RIGHT_BRACE_MARK) then
-        return {};
+        return { node = NodeType.LOGIC_TABLE_NODE };
+    end
+    INDEX = indexCpy;
+
+    local matchedFirstHead = {val = nil};
+    local matchedHeadList = {val = nil};
+    local matchedTail = {val = nil};
+    if SET(matchedFirstHead, MATCH(TokenType.LEFT_BRACE_MARK, NODE.LOGIC_VALUE)) and
+    SET(matchedHeadList, OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE)) and
+    SET(matchedTail, OPTIONAL(INDEX, TokenType.CONCATENATION_OPERATOR, NODE.LOGIC_VALUE)) and
+    MATCH(TokenType.RIGHT_BRACE_MARK) then
+        local head = matchedFirstHead.val[2];
+        for index, value in ipairs(matchedHeadList.val) do
+            head[#head+1] = value[2];
+        end
+        return { node = NodeType.LOGIC_TABLE_NODE, head = head, tail = matchedTail.val[2] };
     end
     INDEX = indexCpy;
 
@@ -1195,16 +1220,21 @@ end
 function NODE.LOGIC_VALUE()
     local indexCpy = INDEX;
 
-    if MATCH(TokenType.IDENTIFIER) then
-        return {};
+    local matchedValue = {val = nil};
+    if SET(matchedValue, MATCH(NODE.LOGIC_TABLE)) then
+        return matchedValue.val;
     end
 
-    if MATCH(TokenType.NUMBER_VALUE) then
-        return {};
+    if SET(matchedValue, MATCH(TokenType.IDENTIFIER)) then
+        return { node = NodeType.LOGIC_IDENTIFIER_NODE, id = matchedValue.val.value};
     end
 
-    if MATCH(TokenType.STRING_VALUE) then
-        return {};
+    if SET(matchedValue, MATCH(TokenType.NUMBER_VALUE)) then
+        return { node = NodeType.VALUE_NODE, value = matchedValue.val.value };
+    end
+
+    if SET(matchedValue, MATCH(TokenType.STRING_VALUE)) then
+        return { node = NodeType.VALUE_NODE, value = matchedValue.val.value };
     end
 
     return false;
@@ -1213,8 +1243,8 @@ end
 function NODE.LOGIC_FUNCTION_CALL()
     local indexCpy = INDEX;
 
-    if MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VAR) and
-    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VAR) and
+    if MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VALUE) and
+    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE) and
     MATCH(TokenType.RIGHT_PARAN_MARK) then
         return {};
     end
@@ -1236,8 +1266,8 @@ function NODE.LOGIC_STAT()
 
     if MATCH(TokenType.IDENTIFIER) and
     OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, TokenType.IDENTIFIER) and
-    MATCH(TokenType.ASSIGN_OPERATOR, NODE.LOGIC_VAR) and
-    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VAR) then
+    MATCH(TokenType.ASSIGN_OPERATOR, NODE.LOGIC_VALUE) and
+    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE) then
         return {};
     end
     INDEX = indexCpy;

@@ -77,8 +77,7 @@ Tokens.TokenType = {
     QUESTION_OPERATOR = 69,
     NEW_KEYWORD = 70,
     CONCATENATION_OPERATOR = 71,
-    OUT_KEYWORD = 72,
-    LOGIC_KEYWORD = 73
+    LOGIC_KEYWORD = 72
 };
 
 Tokens.MapKeywords = {
@@ -117,7 +116,6 @@ Tokens.MapKeywords = {
     ['protected'] = Tokens.TokenType.PROTECTED_KEYWORD,
     ['this'] = Tokens.TokenType.THIS_KEYWORD,
     ['new'] = Tokens.TokenType.NEW_KEYWORD,
-    ['out'] = Tokens.TokenType.OUT_KEYWORD,
     ['logic'] = Tokens.TokenType.LOGIC_KEYWORD
 }
 
@@ -208,7 +206,9 @@ Tokens.NodeType = {
     TYPED_VAR_NODE = 45,
     LOGIC_BLOCK_NODE = 46,
     LOGIC_NAME_NODE = 47,
-    LOGIC_ARGS_NODE = 48
+    LOGIC_ARGS_NODE = 48,
+    LOGIC_IDENTIFIER_NODE = 49,
+    LOGIC_TABLE_NODE= 50
 }
 
 return Tokens;

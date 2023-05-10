@@ -1,5 +1,0 @@
-local _dep_logic = require("logic.lua");
---LOGIC BLOCK
-local function delete_number(Number, List)
---do stuff here
-end
