@@ -77,4 +77,14 @@ function utils.length_with_holes(tb)
     return count;
 end
 
+function utils.homogeouns_array(map, maxn)
+    local array = {}
+    for i = 1, maxn do
+        if map[i] then
+            array[#array + 1] = map[i]
+        end
+    end
+    return array;
+end
+
 return utils;

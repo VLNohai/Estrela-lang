@@ -22,6 +22,8 @@ function linkedList:new(tb)
                 list.head = linkedList:new(array[1]);
             end
             list.tail = imbricate(utils.remove_first_n(array, 1), 1);
+        else
+            return {};
         end
     end
     setmetatable(list, self);
@@ -44,15 +46,17 @@ end
 
 local function linkedlist_to_string(list)
     if type(list) ~= 'table' then
-        return list;
+        return list or '';
     end
     local asString = '[';
     if list.head then
        asString = asString .. linkedlist_to_string(list.head);
        list = list.tail;
-       while list.head do
-           asString = asString .. ', ' .. linkedlist_to_string(list.head);
-           list = list.tail;
+       if list then
+        while list.head do
+            asString = asString .. ', ' .. linkedlist_to_string(list.head);
+            list = list.tail;
+        end
        end
        asString = asString .. ']';
     end
@@ -61,6 +65,10 @@ end
 
 function linkedList:print()
     utils.dump_print(linkedlist_to_string(self));
+end
+
+function linkedList.list_print(list)
+    utils.dump_print(linkedlist_to_string(list));
 end
 
 return linkedList;

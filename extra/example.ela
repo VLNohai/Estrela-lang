@@ -1,13 +1,13 @@
 logic Delete_number(Number, List, Result)
-    (Nr, {{{}}}, {}) end
+    (Nr, {}, {}) end
     (Nr, {H|T}, Res)
         Nr == H;
-        delete_number(Number, T, Res_rec);
+        Delete_number(Nr, T, Res_rec);
         Res = Res_rec;
     end
     (Nr, {H|T}, Res)
         Nr ~= H;
-        delete_number(Number, T, Res_rec);
-        Res = {Number|Res_rec};
+        Delete_number(Nr, T, Res_rec);
+        Res = {H|Res_rec};
     end
 end

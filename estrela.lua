@@ -7,6 +7,7 @@ Generator = require('generator');
 
 Path = 'E:/estrela rep/estrela/extra/example.ela';
 
+
 Lexems = Lexer.lex(Path);
 if Lexems then
     AST = Parser.parse(Lexems);

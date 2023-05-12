@@ -4,6 +4,7 @@ Generator = {};
 MainOutputFile = io.open("output/main.lua", 'w')
 Code = "--end of dependencies\n";
 local dependencies = {};
+local scopePrefixString = '..scPfx';
 
 local function writeFunction(is_local, name, args, body_as_string)
     local code = '';
@@ -49,43 +50,110 @@ local function fromLogicNodeToTable(node)
         code = code .. 'head = ' .. fromLogicNodeToTable(node.head) .. ', tail = ' ..fromLogicNodeToTable(node.tail);
         code = code .. '}';
     elseif node.node == NodeType.VALUE_NODE then
-        local code = node.value;
-        if type(node.value) == "string" then
-            code = '"' .. code .. '"';
-        end
+        code = node.value;
     elseif node.node == NodeType.LOGIC_IDENTIFIER_NODE then
-        code = node.id;
+        code = "'" .. node.id .. "'" .. scopePrefixString;
     end
     return code;
 end
 
-local function resolveFuncArgs(func_args)
+local function resolveFuncArgs(func_args, ret_by_binding)
     local code = '';
     for index, arg in ipairs(func_args) do
-        code = code .. fromLogicNodeToTable(arg) .. ', ';
+        local left, right = '', '';
+        if ret_by_binding then
+            left, right = '_dep_logic.substitute_vars(', ', _logic_bindings)';
+        end
+        code = code .. left .. fromLogicNodeToTable(arg) .. right ..', ';
     end
+    code = string.sub(code, 1, -3);
     return code;
 end
 
+local checkItBinded = 'if not _logic_bindings then return nil end;';
 local function handleLogicArgs(block_args, func_args)
     local header = '';
     local footer = '';
-    header = header .. '_dep_logic.unify(\n{' .. resolveFuncArgs(func_args)  .. '},\n';
+    header = header .. 'local _logic_bindings = ';
+    header = header .. '_dep_logic.unify_many(\n{' .. resolveFuncArgs(func_args)  .. '},\n';
     header = header .. '{' .. utils.listOfIdsToCommaString(block_args) .. '}';
-    header = header .. ');';
+    header = header .. ', {});\n';
+    header = header .. checkItBinded .. '\n';
+
+    footer = footer ..  'return {' .. resolveFuncArgs(func_args, true) .. '};';
     return header, footer;
 end
 
-local function handleLogicStats(stats)
-    return '';
+local function resolveToNumber(value)
+    local code = '';
+    if value.node == NodeType.LOGIC_IDENTIFIER_NODE then
+        code = '_dep_logic.substitute_vars(' .. "'" .. value.id .. "'" .. scopePrefixString .. ', _logic_bindings' .. ')';
+    else
+        code = code .. value.value;
+    end
+    return code;
 end
 
-local function tablesToLogicLists(args)
-    local code = '';
-    for index, arg in ipairs(args) do
-        
+local function FromTokenToStringOps(token)
+    if token == TokenType.PLUS_OPERATOR then
+        return '+';
+    elseif token == TokenType.MINUS_OPERATOR then
+        return '-'
+    elseif token == TokenType.STAR_OPERATOR then
+        return '*'
+    elseif token == TokenType.SLASH_OPERATOR then
+        return '/'
+    elseif token == TokenType.PERCENT_OPERATOR then
+        return '%'
+    elseif token == TokenType.EQUALS_OPERATOR then
+        return '=='
+    elseif token == TokenType.NOT_EQUALS_OPERATOR then
+        return '~='
+    elseif token == TokenType.MORE_OPERATOR then
+        return '>'
+    elseif token == TokenType.LESS_OPERATOR then
+        return '<'
+    elseif token == TokenType.MORE_OR_EQUAL_OPERATOR then
+        return '>='
+    elseif token == TokenType.LESS_OR_EQUAL_OPERATOR then
+        return '<='
     end
-    code = code .. utils.listOfIdsToCommaString(args) .. ' = _dep_logic.toList(' ..utils.listOfIdsToCommaString(args, true)  .. ');\n';
+end
+
+local function spreadExp(exp)
+    local code = '' .. resolveToNumber(exp.value);
+    while exp.exp do
+        code = code .. FromTokenToStringOps(exp.binop);
+        exp = exp.exp;
+        if exp.value then
+            code = code .. resolveToNumber(exp.value);
+        else
+            code = code .. "(" .. spreadExp(exp.innerExp) .. ")";
+        end
+    end
+    return code;
+end
+
+local function handleLogicStats(stats)
+    local code = '';
+    for index, stat in ipairs(stats) do
+        if stat.node == NodeType.LOGIC_CHECK_NODE then
+            code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') then return nil; end' .. '\n';
+        elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
+            code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings) then return nil end\n';
+        elseif stat.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
+            code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')[1]' .. ', _logic_bindings) then return nil end\n';
+        end
+    end
+    return code;
+end
+
+local function tablesToLogicLists(args, id)
+    local code = '';
+    code = code .. 'if stack_depth_' .. id .. ' == 1 then\n';
+    code = code .. utils.listOfIdsToCommaString(args) .. ' = _dep_logic.toList(' ..utils.listOfIdsToCommaString(args)  .. ');\n';
+    code = code .. utils.listOfIdsToCommaString(args) .. ' = '..utils.listOfIdsToCommaString(args, true) .. ';\n';
+    code = code .. 'end\n';
     return code;
 end
 
@@ -114,20 +182,30 @@ function Generator.generate(ast)
 
     statRouter[NodeType.LOGIC_BLOCK_NODE] = function (block)
         local localCode = '';
-        loadDependency('utils');
+        loadDependency('utils', true);
         loadDependency('linkedlist');
         loadDependency('logic', true);
         --BODY
         local bodyCode = '';
-        bodyCode = bodyCode .. tablesToLogicLists(block.args);
+        bodyCode = bodyCode .. tablesToLogicLists(block.args, block.id);
         for index, func in ipairs(block.funcs) do
             local header, footer = handleLogicArgs(block.args, func.args);
             bodyCode = bodyCode .. writeFunction(true, (block.id .. '_' .. index), utils.extractField(block.args, 'id'),
-                header .. handleLogicStats(func.stats) .. footer
+                'local scPfx = _dep_logic.newScopeId()\n' .. header .. handleLogicStats(func.stats) .. footer
             );
         end
+        --RETSTAT
+        bodyCode = bodyCode .. 'local _logic_ret_val = _dep_utils.homogeouns_array({';
+        for index, func in ipairs(block.funcs) do
+            bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ',';
+        end
+        bodyCode = bodyCode .. '},' .. #block.funcs .. ');';
+        bodyCode = 'stack_depth_' .. block.id .. ' = stack_depth_' ..block.id .. ' + 1;\n' .. bodyCode;
+        bodyCode = bodyCode .. '\nstack_depth_' .. block.id .. ' = stack_depth_' ..block.id .. ' - 1;\n'
+        bodyCode = bodyCode .. 'return _logic_ret_val;\n';
         --SIGNATURE
         localCode = localCode .. writeFunction(false, block.id, utils.extractField(block.args, 'id'), bodyCode);
+        localCode = 'local stack_depth_' .. block.id .. ' = 0;\n' .. localCode;
 
         return localCode;
     end

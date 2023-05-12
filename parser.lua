@@ -1184,7 +1184,7 @@ function NODE.LOGIC_FUNC()
         for index, var in ipairs(matchedVarList.val) do
             vars[#vars + 1] = var[2];
         end
-        return { args = vars, };
+        return { args = vars, stats = matchedStats.val};
     end
     INDEX = indexCpy;
 
@@ -1243,10 +1243,16 @@ end
 function NODE.LOGIC_FUNCTION_CALL()
     local indexCpy = INDEX;
 
-    if MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VALUE) and
-    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE) and
+    local matchedId = {val = nil};
+    local matchedArgList = {val = nil};
+    if SET(matchedId, MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK, NODE.LOGIC_VALUE)) and
+    SET(matchedArgList, OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE)) and
     MATCH(TokenType.RIGHT_PARAN_MARK) then
-        return {};
+        local args = {[1] = matchedId.val[3]};
+        for index, arg in ipairs(matchedArgList.val) do
+            args[#args+1] = arg[2];
+        end
+        return {args = args, id = matchedId.val[1].value, node = NodeType.LOGIC_FUNCTION_CALL_NODE};
     end
     INDEX = indexCpy;
 
@@ -1256,24 +1262,24 @@ end
 function NODE.LOGIC_STAT()
     local indexCpy = INDEX;
     
+    local matchedVal = {val = nil};
     if MATCH(TokenType.SEMICOLON_MARK) then
-        return {};
-    end
-
-    if MATCH(NODE.LOGIC_FUNCTION_CALL) then
-        return {};
-    end
-
-    if MATCH(TokenType.IDENTIFIER) and
-    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, TokenType.IDENTIFIER) and
-    MATCH(TokenType.ASSIGN_OPERATOR, NODE.LOGIC_VALUE) and
-    OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE) then
         return {};
     end
     INDEX = indexCpy;
 
-    if MATCH(TokenType.IDENTIFIER, NODE.LOGIC_CHECKS, NODE.LOGIC_EXP) then
-        return {};
+    if SET(matchedVal, MATCH(NODE.LOGIC_FUNCTION_CALL)) then
+        return matchedVal.val;
+    end
+    INDEX = indexCpy;
+
+    if SET(matchedVal, MATCH(NODE.LOGIC_VALUE, TokenType.ASSIGN_OPERATOR, NODE.LOGIC_VALUE)) then
+        return {left = matchedVal.val[1], right = matchedVal.val[3], node = NodeType.LOGIC_UNIFY_NODE};
+    end
+    INDEX = indexCpy;
+
+    if SET(matchedVal, MATCH(NODE.LOGIC_EXP, NODE.LOGIC_CHECKS, NODE.LOGIC_EXP)) then
+        return {left = matchedVal.val[1], check = matchedVal.val[2], right = matchedVal.val[3], node=NodeType.LOGIC_CHECK_NODE};
     end
     INDEX = indexCpy;
 
@@ -1281,21 +1287,51 @@ function NODE.LOGIC_STAT()
 end
 
 function NODE.LOGIC_CHECKS()
-    if MATCH(TokenType.EQUALS_OPERATOR) or
-    MATCH(TokenType.NOT_EQUALS_OPERATOR) or
-    MATCH(TokenType.MORE_OPERATOR) or
-    MATCH(TokenType.LESS_OPERATOR) or
-    MATCH(TokenType.LESS_OR_EQUAL_OPERATOR) or
-    MATCH(TokenType.MORE_OR_EQUAL_OPERATOR) then
-        return {};
+    local matchedCheck = {val = nil};
+    if SET(matchedCheck, MATCH(TokenType.EQUALS_OPERATOR)) or
+    SET(matchedCheck, MATCH(TokenType.NOT_EQUALS_OPERATOR)) or
+    SET(matchedCheck, MATCH(TokenType.MORE_OPERATOR)) or
+    SET(matchedCheck, MATCH(TokenType.LESS_OPERATOR)) or
+    SET(matchedCheck, MATCH(TokenType.LESS_OR_EQUAL_OPERATOR)) or
+    SET(matchedCheck, MATCH(TokenType.MORE_OR_EQUAL_OPERATOR)) then
+        return matchedCheck.val.tokenType;
     end
+    return false;
 end
 
 function NODE.LOGIC_EXP()
-    if MATCH(NODE.LOGIC_VALUE) then
-        return {};
+    local indexCpy = INDEX;
+
+    local matchedValue = {val = nil};
+    if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.LOGIC_EXP, TokenType.RIGHT_PARAN_MARK)) then
+        return { paranExp = true, innerExp = matchedValue.val[2]};
     end
+    INDEX = indexCpy;
+
+    local matchedOps = {val = nil};
+    if SET(matchedValue, MATCH(NODE.LOGIC_VALUE)) and SET(matchedOps, OPTIONAL(INDEX, NODE.LOGIC_BINOP, NODE.LOGIC_EXP)) then
+        local binop, exp = nil, nil;
+        if matchedOps.val then
+            binop = matchedOps.val[1];
+            exp = matchedOps.val[2];
+        end
+        return { value = matchedValue.val, binop = binop, exp = exp};
+    end
+    INDEX = indexCpy;
+
     return false;
+end
+
+function NODE.LOGIC_BINOP()
+    local matchedOp = {val = nil};
+    if SET(matchedOp, MATCH(TokenType.PLUS_OPERATOR)) or
+    SET(matchedOp, MATCH(TokenType.MINUS_OPERATOR)) or
+    SET(matchedOp, MATCH(TokenType.SLASH_OPERATOR)) or
+    SET(matchedOp, MATCH(TokenType.STAR_OPERATOR)) or
+    SET(matchedOp, MATCH(TokenType.PERCENT_OPERATOR))
+    then
+        return matchedOp.val.tokenType;
+    end
 end
 
 function Parser.parse(lexems)
