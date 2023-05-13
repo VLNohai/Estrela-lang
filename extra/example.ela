@@ -1,13 +1,17 @@
-logic Delete_number(Number, List, Result)
-    (Nr, {}, {}) end
-    (Nr, {H|T}, Res)
-        Nr == H;
-        Delete_number(Nr, T, Res_rec);
-        Res = Res_rec;
-    end
-    (Nr, {H|T}, Res)
-        Nr ~= H;
-        Delete_number(Nr, T, Res_rec);
-        Res = {H|Res_rec};
+logic append(item1, item2, rez)
+    ({}, item2, item2) end
+    ({H|T}, item2, rez) 
+        append(T, item2, rez_rec);
+        rez = {H|rez_rec};
     end
 end
+
+logic reverse(list, rez)
+    ({}, {}) end
+    ({H|T}, rez)
+        reverse(T, rez_rec);
+        append(rez_rec, {H}, both);
+        rez = both;
+    end
+end
+

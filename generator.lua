@@ -4,7 +4,7 @@ Generator = {};
 MainOutputFile = io.open("output/main.lua", 'w')
 Code = "--end of dependencies\n";
 local dependencies = {};
-local scopePrefixString = '..scPfx';
+local scopePrefixString = '..scID';
 
 local function writeFunction(is_local, name, args, body_as_string)
     local code = '';
@@ -47,7 +47,14 @@ local function fromLogicNodeToTable(node)
     end
     if node.node == NodeType.LOGIC_TABLE_NODE then
         code = code .. '{';
-        code = code .. 'head = ' .. fromLogicNodeToTable(node.head) .. ', tail = ' ..fromLogicNodeToTable(node.tail);
+        local head = fromLogicNodeToTable(node.head);
+        local tail = fromLogicNodeToTable(node.tail);
+        if head ~= 'nil' and tail == 'nil' then
+            tail = '{}';
+        end
+        if head ~= 'nil' or tail ~= 'nil' then
+            code = code .. 'head = ' .. head .. ', tail = ' .. tail;
+        end
         code = code .. '}';
     elseif node.node == NodeType.VALUE_NODE then
         code = node.value;
@@ -121,7 +128,12 @@ local function FromTokenToStringOps(token)
 end
 
 local function spreadExp(exp)
-    local code = '' .. resolveToNumber(exp.value);
+    local code = '';
+    if exp.paranExp then
+        code = code .. "(" .. spreadExp(exp.innerExp) .. ")";
+    else
+        code = code .. resolveToNumber(exp.value);
+    end
     while exp.exp do
         code = code .. FromTokenToStringOps(exp.binop);
         exp = exp.exp;
@@ -142,7 +154,9 @@ local function handleLogicStats(stats)
         elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
             code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings) then return nil end\n';
         elseif stat.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
-            code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')[1]' .. ', _logic_bindings) then return nil end\n';
+            code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings) then return nil end\n';
+        elseif stat.node == NodeType.LOGIC_ASSIGN_NODE then
+            code = code .. 'if not _dep_logic.unify("' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings) then return nil end\n';
         end
     end
     return code;
@@ -150,7 +164,7 @@ end
 
 local function tablesToLogicLists(args, id)
     local code = '';
-    code = code .. 'if stack_depth_' .. id .. ' == 1 then\n';
+    code = code .. 'if _Logic_stack_depth == 1 then\n';
     code = code .. utils.listOfIdsToCommaString(args) .. ' = _dep_logic.toList(' ..utils.listOfIdsToCommaString(args)  .. ');\n';
     code = code .. utils.listOfIdsToCommaString(args) .. ' = '..utils.listOfIdsToCommaString(args, true) .. ';\n';
     code = code .. 'end\n';
@@ -191,21 +205,21 @@ function Generator.generate(ast)
         for index, func in ipairs(block.funcs) do
             local header, footer = handleLogicArgs(block.args, func.args);
             bodyCode = bodyCode .. writeFunction(true, (block.id .. '_' .. index), utils.extractField(block.args, 'id'),
-                'local scPfx = _dep_logic.newScopeId()\n' .. header .. handleLogicStats(func.stats) .. footer
+                'local scID = _dep_logic.newScopeId()\n' .. header .. handleLogicStats(func.stats) .. footer
             );
         end
         --RETSTAT
-        bodyCode = bodyCode .. 'local _logic_ret_val = _dep_utils.homogeouns_array({';
+        bodyCode = bodyCode .. 'local _logic_ret_val = '
         for index, func in ipairs(block.funcs) do
-            bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ',';
+            bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ' or ';
         end
-        bodyCode = bodyCode .. '},' .. #block.funcs .. ');';
-        bodyCode = 'stack_depth_' .. block.id .. ' = stack_depth_' ..block.id .. ' + 1;\n' .. bodyCode;
-        bodyCode = bodyCode .. '\nstack_depth_' .. block.id .. ' = stack_depth_' ..block.id .. ' - 1;\n'
+        bodyCode = bodyCode .. 'nil;';
+        bodyCode = '_Logic_stack_depth = _Logic_stack_depth + 1;\n' .. bodyCode;
+        bodyCode = bodyCode .. '\n_Logic_stack_depth = _Logic_stack_depth - 1;\n'
+        bodyCode = bodyCode .. 'if (not _logic_ret_val) or #_logic_ret_val == 0 then return nil end;\n'
         bodyCode = bodyCode .. 'return _logic_ret_val;\n';
         --SIGNATURE
         localCode = localCode .. writeFunction(false, block.id, utils.extractField(block.args, 'id'), bodyCode);
-        localCode = 'local stack_depth_' .. block.id .. ' = 0;\n' .. localCode;
 
         return localCode;
     end

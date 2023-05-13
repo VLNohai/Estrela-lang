@@ -3,6 +3,7 @@ local logic = {};
 local utils = require('deps.utils');
 local CURRENT_ADRESS = 1;
 local CURRENT_SCOPE_ID = 0;
+_Logic_stack_depth = 0;
 
 local function allocate_new(key, value, bindings)
    bindings[key] = CURRENT_ADRESS;

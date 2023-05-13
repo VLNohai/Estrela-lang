@@ -1221,6 +1221,12 @@ function NODE.LOGIC_VALUE()
     local indexCpy = INDEX;
 
     local matchedValue = {val = nil};
+    if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.LOGIC_EXP, TokenType.RIGHT_PARAN_MARK)) then
+        return { paranExp = true, innerExp = matchedValue.val[2]};
+    end
+    INDEX = indexCpy;
+
+    matchedValue = {val = nil};
     if SET(matchedValue, MATCH(NODE.LOGIC_TABLE)) then
         return matchedValue.val;
     end
@@ -1278,6 +1284,10 @@ function NODE.LOGIC_STAT()
     end
     INDEX = indexCpy;
 
+    if SET(matchedVal, MATCH(TokenType.IDENTIFIER, TokenType.ARROW_OPERATOR, NODE.LOGIC_EXP)) then
+        return {left = matchedVal.val[1].value, right = matchedVal.val[3], node = NodeType.LOGIC_ASSIGN_NODE}
+    end
+
     if SET(matchedVal, MATCH(NODE.LOGIC_EXP, NODE.LOGIC_CHECKS, NODE.LOGIC_EXP)) then
         return {left = matchedVal.val[1], check = matchedVal.val[2], right = matchedVal.val[3], node=NodeType.LOGIC_CHECK_NODE};
     end
@@ -1303,17 +1313,17 @@ function NODE.LOGIC_EXP()
     local indexCpy = INDEX;
 
     local matchedValue = {val = nil};
-    if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.LOGIC_EXP, TokenType.RIGHT_PARAN_MARK)) then
-        return { paranExp = true, innerExp = matchedValue.val[2]};
-    end
-    INDEX = indexCpy;
-
     local matchedOps = {val = nil};
     if SET(matchedValue, MATCH(NODE.LOGIC_VALUE)) and SET(matchedOps, OPTIONAL(INDEX, NODE.LOGIC_BINOP, NODE.LOGIC_EXP)) then
         local binop, exp = nil, nil;
         if matchedOps.val then
             binop = matchedOps.val[1];
             exp = matchedOps.val[2];
+        end
+        if matchedValue.val.paranExp then
+            matchedValue.val.exp = exp;
+            matchedValue.val.binop = binop;
+            return matchedValue.val;
         end
         return { value = matchedValue.val, binop = binop, exp = exp};
     end
