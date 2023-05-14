@@ -139,37 +139,13 @@ function logic.print_list(tb)
    list.list_print(tb);
 end
 
-local exclude = {}
-local current_track = '';
-local deepest_track = '';
-local depth = 0;
-
-function logic.adv(func_name)
-   if exclude[current_track .. '|' .. func_name] then
-      current_track = current_track .. '|' .. func_name .. '|' .. 'back';
-      return false;
-   end
-   current_track = current_track .. '|' .. func_name; 
-   deepest_track = current_track;
-   depth = depth + 1;
-   return true;
-end
-
-function logic.inv()
-   current_track = current_track .. '|' .. 'back';
-   depth = depth - 1;
-end
-
-function logic.ret()
-   current_track = current_track .. '|' .. 'ret';
-   depth = depth - 1;
-end
-
-function logic.reset()
-   if depth == 0 then
-      print('deepest: ' .. deepest_track);
-      exclude[deepest_track] = true;
-      current_track = '';
+function logic.run(funcs, args)
+   for index, func in ipairs(funcs) do
+      local co = coroutine.create(func);
+      while coroutine.status(co) ~= "dead" do
+         local _, temp = coroutine.resume(co, table.unpack(args));
+         coroutine.yield(temp);
+      end
    end
 end
 
