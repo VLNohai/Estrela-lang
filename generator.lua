@@ -59,7 +59,7 @@ local function fromLogicNodeToTable(node)
     elseif node.node == NodeType.VALUE_NODE then
         code = node.value;
     elseif node.node == NodeType.LOGIC_IDENTIFIER_NODE then
-        code = "'" .. node.id .. "'" .. scopePrefixString;
+        code = "'_" .. node.id .. "'" .. scopePrefixString;
     end
     return code;
 end
@@ -77,7 +77,7 @@ local function resolveFuncArgs(func_args, ret_by_binding)
     return code;
 end
 
-local checkItBinded = 'if not _logic_bindings then return nil end;';
+local checkItBinded = 'if not _logic_bindings then _dep_logic.inv() return nil end;';
 local function handleLogicArgs(block_args, func_args)
     local header = '';
     local footer = '';
@@ -87,6 +87,7 @@ local function handleLogicArgs(block_args, func_args)
     header = header .. ', {});\n';
     header = header .. checkItBinded .. '\n';
 
+    footer = footer .. '_dep_logic.ret();\n'
     footer = footer ..  'return {' .. resolveFuncArgs(func_args, true) .. '};';
     return header, footer;
 end
@@ -94,7 +95,7 @@ end
 local function resolveToNumber(value)
     local code = '';
     if value.node == NodeType.LOGIC_IDENTIFIER_NODE then
-        code = '_dep_logic.substitute_vars(' .. "'" .. value.id .. "'" .. scopePrefixString .. ', _logic_bindings' .. ')';
+        code = '_dep_logic.substitute_vars(' .. "'_" .. value.id .. "'" .. scopePrefixString .. ', _logic_bindings' .. ')';
     else
         code = code .. value.value;
     end
@@ -150,13 +151,13 @@ local function handleLogicStats(stats)
     local code = '';
     for index, stat in ipairs(stats) do
         if stat.node == NodeType.LOGIC_CHECK_NODE then
-            code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') then return nil; end' .. '\n';
+            code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') then _dep_logic.inv() return nil; end' .. '\n';
         elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
-            code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings) then return nil end\n';
+            code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings) then  _dep_logic.inv() return nil end\n';
         elseif stat.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
-            code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings) then return nil end\n';
+            code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings) then _dep_logic.inv() return nil end\n';
         elseif stat.node == NodeType.LOGIC_ASSIGN_NODE then
-            code = code .. 'if not _dep_logic.unify("' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings) then return nil end\n';
+            code = code .. 'if not _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings) then _dep_logic.inv() return nil end\n';
         end
     end
     return code;
@@ -165,8 +166,7 @@ end
 local function tablesToLogicLists(args, id)
     local code = '';
     code = code .. 'if _Logic_stack_depth == 1 then\n';
-    code = code .. utils.listOfIdsToCommaString(args) .. ' = _dep_logic.toList(' ..utils.listOfIdsToCommaString(args)  .. ');\n';
-    code = code .. utils.listOfIdsToCommaString(args) .. ' = '..utils.listOfIdsToCommaString(args, true) .. ';\n';
+    code = code .. utils.listOfIdsToCommaString(args) .. ' = _dep_logic.toList(' ..utils.listOfIdsToCommaString(args, true)  .. ');\n';
     code = code .. 'end\n';
     return code;
 end
@@ -204,8 +204,11 @@ function Generator.generate(ast)
         bodyCode = bodyCode .. tablesToLogicLists(block.args, block.id);
         for index, func in ipairs(block.funcs) do
             local header, footer = handleLogicArgs(block.args, func.args);
-            bodyCode = bodyCode .. writeFunction(true, (block.id .. '_' .. index), utils.extractField(block.args, 'id'),
-                'local scID = _dep_logic.newScopeId()\n' .. header .. handleLogicStats(func.stats) .. footer
+            local func_id = block.id .. '_' .. index;
+            bodyCode = bodyCode .. writeFunction(true, (func_id), utils.extractField(block.args, 'id'),
+                'if not _dep_logic.adv("' .. func_id .. '"' .. ') then return nil end;\n' 
+                .. 'local scID = _dep_logic.newScopeId()\n' 
+                .. header .. handleLogicStats(func.stats) .. footer
             );
         end
         --RETSTAT
@@ -216,6 +219,7 @@ function Generator.generate(ast)
         bodyCode = bodyCode .. 'nil;';
         bodyCode = '_Logic_stack_depth = _Logic_stack_depth + 1;\n' .. bodyCode;
         bodyCode = bodyCode .. '\n_Logic_stack_depth = _Logic_stack_depth - 1;\n'
+        bodyCode = bodyCode .. '_dep_logic.reset()';
         bodyCode = bodyCode .. 'if (not _logic_ret_val) or #_logic_ret_val == 0 then return nil end;\n'
         bodyCode = bodyCode .. 'return _logic_ret_val;\n';
         --SIGNATURE

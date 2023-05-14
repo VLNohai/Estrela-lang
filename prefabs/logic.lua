@@ -14,7 +14,7 @@ end
 local function get_value(key, bindings);
    if not bindings[key] then
       return nil;
-   end;
+   end
    return bindings[bindings[key]];
 end
 
@@ -71,18 +71,19 @@ function logic.unify(a, b, bindings)
 end
 
 function logic.toList(...)
-   local elems = {...};
    local result = {};
-   for index, elem in ipairs(elems) do
+   local elems = {...};
+   for index, elem in pairs(elems) do
       if type(elem) == "table"then
          elem = list:new(elem);
       end
-      result[#result+1] = elem;
+      result[index] = elem;
    end
    return table.unpack(result);
 end
 
 function logic.unify_many(list1, list2, bindings)
+   if not (list1 and list2) then return nil end;
     if #list1 ~= #list2 then
         print('unequal lists provided!');
         return nil;
@@ -136,6 +137,40 @@ end
 
 function logic.print_list(tb)
    list.list_print(tb);
+end
+
+local exclude = {}
+local current_track = '';
+local deepest_track = '';
+local depth = 0;
+
+function logic.adv(func_name)
+   if exclude[current_track .. '|' .. func_name] then
+      current_track = current_track .. '|' .. func_name .. '|' .. 'back';
+      return false;
+   end
+   current_track = current_track .. '|' .. func_name; 
+   deepest_track = current_track;
+   depth = depth + 1;
+   return true;
+end
+
+function logic.inv()
+   current_track = current_track .. '|' .. 'back';
+   depth = depth - 1;
+end
+
+function logic.ret()
+   current_track = current_track .. '|' .. 'ret';
+   depth = depth - 1;
+end
+
+function logic.reset()
+   if depth == 0 then
+      print('deepest: ' .. deepest_track);
+      exclude[deepest_track] = true;
+      current_track = '';
+   end
 end
 
 return logic;

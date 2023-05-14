@@ -1,17 +1,14 @@
-logic append(item1, item2, rez)
-    ({}, item2, item2) end
-    ({H|T}, item2, rez) 
-        append(T, item2, rez_rec);
-        rez = {H|rez_rec};
+logic  select(X, List, Rest)
+    (X, {X|Xs}, Xs) end
+    (X, {Y|Ys}, {Y|Zs})
+        select(X, Ys, Zs);
     end
 end
 
-logic reverse(list, rez)
+logic permutations(List, Rez)
     ({}, {}) end
-    ({H|T}, rez)
-        reverse(T, rez_rec);
-        append(rez_rec, {H}, both);
-        rez = both;
+    ({H|T}, {X|Perm})
+        select(X, {H|T}, Rest);
+        permutations(Rest, Perm);
     end
 end
-
