@@ -149,4 +149,8 @@ function logic.run(funcs, args)
    end
 end
 
+function logic.is_list(arg, bindings)
+   return (type(get_value(arg, bindings)) == 'table');
+end
+
 return logic;

@@ -1,14 +1,5 @@
-logic  select(X, List, Rest)
-    (X, {X|Xs}, Xs) end
-    (X, {Y|Ys}, {Y|Zs})
-        select(X, Ys, Zs);
-    end
-end
-
-logic permutations(List, Rez)
-    ({}, {}) end
-    ({H|T}, {X|Perm})
-        select(X, {H|T}, Rest);
-        permutations(Rest, Perm);
+logic unique test(arg)
+    (arg)
+        is_list(arg);
     end
 end

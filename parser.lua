@@ -405,12 +405,21 @@ function NODE.STAT()
     end
     INDEX = indexCpy;
 
-    matchedValues = { val = nil };
+    local matchedNames = { val = nil };
     local matchedFunctions = { val = nil };
-    if SET(matchedValues, MATCH(TokenType.LOGIC_KEYWORD, TokenType.IDENTIFIER, NODE.LOGIC_NAMELIST)) and
+    local matchedID = {val = nil};
+    local matchedUnique = {val = nil};
+    if MATCH(TokenType.LOGIC_KEYWORD) and
+    SET(matchedUnique, OPTIONAL(INDEX, TokenType.UNIQUE_KEYWORD)) and
+    SET(matchedID, MATCH(TokenType.IDENTIFIER)) and
+    SET(matchedNames, MATCH(NODE.LOGIC_NAMELIST)) and
     SET(matchedFunctions, OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_FUNC)) and 
     MATCH(TokenType.END_KEYWORD) then
-        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedValues.val[2].value, args =  matchedValues.val[3], funcs = matchedFunctions.val};
+        local is_unique = nil;
+        if #matchedUnique.val == 0 then
+            is_unique = true;
+        end
+        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val};
     end
     INDEX = indexCpy;
 
@@ -1258,7 +1267,11 @@ function NODE.LOGIC_FUNCTION_CALL()
         for index, arg in ipairs(matchedArgList.val) do
             args[#args+1] = arg[2];
         end
-        return {args = args, id = matchedId.val[1].value, node = NodeType.LOGIC_FUNCTION_CALL_NODE};
+        local is_inbuilt = nil;
+        if matchedId.val[1].value == 'is_list' then
+            is_inbuilt = true;
+        end
+        return {args = args, id = matchedId.val[1].value, node = NodeType.LOGIC_FUNCTION_CALL_NODE, is_inbuilt = is_inbuilt};
     end
     INDEX = indexCpy;
 

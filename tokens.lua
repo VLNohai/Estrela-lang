@@ -77,7 +77,8 @@ Tokens.TokenType = {
     QUESTION_OPERATOR = 69,
     NEW_KEYWORD = 70,
     CONCATENATION_OPERATOR = 71,
-    LOGIC_KEYWORD = 72
+    LOGIC_KEYWORD = 72,
+    UNIQUE_KEYWORD = 73
 };
 
 Tokens.MapKeywords = {
@@ -116,7 +117,8 @@ Tokens.MapKeywords = {
     ['protected'] = Tokens.TokenType.PROTECTED_KEYWORD,
     ['this'] = Tokens.TokenType.THIS_KEYWORD,
     ['new'] = Tokens.TokenType.NEW_KEYWORD,
-    ['logic'] = Tokens.TokenType.LOGIC_KEYWORD
+    ['logic'] = Tokens.TokenType.LOGIC_KEYWORD,
+    ['unique'] = Tokens.TokenType.UNIQUE_KEYWORD
 }
 
 Tokens.MapOperators = {

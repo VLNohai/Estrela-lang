@@ -6,6 +6,7 @@ Code = "--end of dependencies\n";
 local dependencies = {};
 local scopePrefixString = '..scID';
 local bind_depth = 1;
+local is_block_unique = false;
 
 local function writeFunction(is_local, name, args, body_as_string)
     local code = '';
@@ -155,12 +156,16 @@ local function handleLogicStats(stats, containing_func_args)
         elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
             code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
         elseif stat.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
-            bind_depth = bind_depth + 1;
-            code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
-            code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
-            code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
-            code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')';
-            code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+            if stat.is_inbuilt then
+                code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end;\n';
+            else
+                bind_depth = bind_depth + 1;
+                code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
+                code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
+                code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
+                code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')';
+                code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+            end
         elseif stat.node == NodeType.LOGIC_ASSIGN_NODE then
             code = code .. 'if not _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
         end
@@ -169,7 +174,7 @@ local function handleLogicStats(stats, containing_func_args)
     for i=bind_depth, 2, -1 do
         code = code .. '::_logic_continue_' .. i .. '::;' .. ' end ';
     end
-    code = code .. '\n';
+    code = code .. '::_logic_continue_1::\n';
     bind_depth = 1;
     return code;
 end
