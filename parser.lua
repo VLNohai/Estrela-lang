@@ -416,7 +416,8 @@ function NODE.STAT()
     SET(matchedFunctions, OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_FUNC)) and 
     MATCH(TokenType.END_KEYWORD) then
         local is_unique = nil;
-        if #matchedUnique.val == 0 then
+        utils.dump_print(matchedUnique);
+        if matchedUnique.val.value then
             is_unique = true;
         end
         return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val};

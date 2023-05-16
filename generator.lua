@@ -150,32 +150,47 @@ end
 
 local function handleLogicStats(stats, containing_func_args)
     local code = '';
+    local invalidate_stat = '';
     for index, stat in ipairs(stats) do
+        --update the invalidation sequence
+        if is_block_unique then
+            invalidate_stat = 'then return nil end;\n'
+        else
+            invalidate_stat = 'then goto _logic_continue_' .. bind_depth .. ' end;\n'
+        end
         if stat.node == NodeType.LOGIC_CHECK_NODE then
-            code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+            code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') ' .. invalidate_stat;
         elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
-            code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+            code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') ' .. invalidate_stat;
         elseif stat.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
             if stat.is_inbuilt then
-                code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end;\n';
+                code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') ' ..  invalidate_stat;
             else
-                bind_depth = bind_depth + 1;
-                code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
-                code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
-                code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
-                code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')';
-                code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+                if is_block_unique then
+                    code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings) then return nil end\n';
+                else
+                    bind_depth = bind_depth + 1;
+                    code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
+                    code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
+                    code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
+                    code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')';
+                    code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+                end
             end
         elseif stat.node == NodeType.LOGIC_ASSIGN_NODE then
             code = code .. 'if not _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
         end
     end
-    code = code .. 'coroutine.yield({' .. resolveFuncArgs(containing_func_args, true) .. '});\n';
-    for i=bind_depth, 2, -1 do
-        code = code .. '::_logic_continue_' .. i .. '::;' .. ' end ';
+    if is_block_unique then
+        code = code ..  'return {' .. resolveFuncArgs(containing_func_args, true) .. '};\n';
+    else
+        code = code .. 'coroutine.yield({' .. resolveFuncArgs(containing_func_args, true) .. '});\n';
+        for i=bind_depth, 2, -1 do
+            code = code .. '::_logic_continue_' .. i .. '::;' .. ' end ';
+        end
+        code = code .. '::_logic_continue_1::\n';
+        bind_depth = 1;    
     end
-    code = code .. '::_logic_continue_1::\n';
-    bind_depth = 1;
     return code;
 end
 
@@ -218,6 +233,7 @@ function Generator.generate(ast)
         --BODY
         local bodyCode = '';
         local funcList = '';
+        is_block_unique = block.is_unique;
         bodyCode = bodyCode .. tablesToLogicLists(block.args, block.id);
         for index, func in ipairs(block.funcs) do
             local header, footer = handleLogicArgs(block.args, func.args);
@@ -231,13 +247,23 @@ function Generator.generate(ast)
         --YIELDING THE RESULTS
         bodyCode = '_Logic_stack_depth = _Logic_stack_depth + 1;\n' .. bodyCode;
 
-        bodyCode = bodyCode .. '\nlocal _logic_run = coroutine.create(_dep_logic.run);\n';
-        bodyCode = bodyCode .. 'while coroutine.status(_logic_run) ~= "dead" do\n';
-        bodyCode = bodyCode .. 'local _, temp = coroutine.resume(_logic_run, {' .. funcList .. '}, {' .. utils.listOfIdsToCommaString(block.args)  .. '});\n';
-        bodyCode = bodyCode .. 'if temp then coroutine.yield(temp); end;\n'
-        bodyCode = bodyCode .. 'end\n';
-        bodyCode = bodyCode .. '_Logic_stack_depth = _Logic_stack_depth - 1;\n'
-        
+        if is_block_unique then
+            bodyCode = bodyCode .. 'local _logic_ret_val = '
+            for index, func in ipairs(block.funcs) do
+                bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ' or ';
+            end
+            bodyCode = bodyCode .. 'nil;\n';
+            bodyCode = bodyCode .. 'if (not _logic_ret_val) or #_logic_ret_val == 0 then return nil end;\n'
+            bodyCode = bodyCode .. 'return _logic_ret_val;\n';
+        else
+            bodyCode = bodyCode .. 'local _logic_run = coroutine.create(_dep_logic.run);\n';
+            bodyCode = bodyCode .. 'while coroutine.status(_logic_run) ~= "dead" do\n';
+            bodyCode = bodyCode .. 'local _, temp = coroutine.resume(_logic_run, {' .. funcList .. '}, {' .. utils.listOfIdsToCommaString(block.args)  .. '});\n';
+            bodyCode = bodyCode .. 'if temp then coroutine.yield(temp); end;\n'
+            bodyCode = bodyCode .. 'end\n';
+            bodyCode = bodyCode .. '_Logic_stack_depth = _Logic_stack_depth - 1;\n'
+        end
+
         --SIGNATURE
         localCode = localCode .. writeFunction(false, block.id, utils.extractField(block.args, 'id'), bodyCode);
 
