@@ -6,7 +6,10 @@ local function imbricate(list, index)
     if type(head) == "table" then
         head = linkedList:new(head);
     end
-    if index >= #list then
+    if index > #list then
+        return {};
+    end
+    if index == #list then
         return {head = head, tail = {}}
     end
     return {head = head, tail = imbricate(list, index + 1)};

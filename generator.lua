@@ -83,7 +83,9 @@ local checkItBinded = 'if not _logic_bindings_' .. bind_depth .. ' then return n
 local function handleLogicArgs(block_args, func_args)
     local header = '';
     local footer = '';
-    header = header .. 'local temp_resume = nil;\n';
+    if not is_block_unique then
+        header = header .. 'local temp_resume = nil;\n';
+    end
     header = header .. 'local _logic_bindings_1 = ';
     header = header .. '_dep_logic.unify_many(\n{' .. resolveFuncArgs(func_args)  .. '},\n';
     header = header .. '{' .. utils.listOfIdsToCommaString(block_args) .. '}';
@@ -167,7 +169,7 @@ local function handleLogicStats(stats, containing_func_args)
                 code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') ' ..  invalidate_stat;
             else
                 if is_block_unique then
-                    code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings) then return nil end\n';
+                    code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
                 else
                     bind_depth = bind_depth + 1;
                     code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
@@ -253,6 +255,7 @@ function Generator.generate(ast)
                 bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ' or ';
             end
             bodyCode = bodyCode .. 'nil;\n';
+            bodyCode = bodyCode .. '_Logic_stack_depth = _Logic_stack_depth - 1;\n'
             bodyCode = bodyCode .. 'if (not _logic_ret_val) or #_logic_ret_val == 0 then return nil end;\n'
             bodyCode = bodyCode .. 'return _logic_ret_val;\n';
         else

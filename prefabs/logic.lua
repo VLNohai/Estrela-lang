@@ -153,4 +153,8 @@ function logic.is_list(arg, bindings)
    return (type(get_value(arg, bindings)) == 'table');
 end
 
+function logic.atom(arg, bindings)
+   return not(logic.is_list(arg, bindings));
+end
+
 return logic;

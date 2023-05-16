@@ -416,7 +416,6 @@ function NODE.STAT()
     SET(matchedFunctions, OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_FUNC)) and 
     MATCH(TokenType.END_KEYWORD) then
         local is_unique = nil;
-        utils.dump_print(matchedUnique);
         if matchedUnique.val.value then
             is_unique = true;
         end
@@ -1269,7 +1268,7 @@ function NODE.LOGIC_FUNCTION_CALL()
             args[#args+1] = arg[2];
         end
         local is_inbuilt = nil;
-        if matchedId.val[1].value == 'is_list' then
+        if matchedId.val[1].value == 'is_list' or matchedId.val[1].value == 'atom' then
             is_inbuilt = true;
         end
         return {args = args, id = matchedId.val[1].value, node = NodeType.LOGIC_FUNCTION_CALL_NODE, is_inbuilt = is_inbuilt};
