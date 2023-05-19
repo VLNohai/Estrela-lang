@@ -49,13 +49,20 @@ local function fromLogicNodeToTable(node)
     end
     if node.node == NodeType.LOGIC_TABLE_NODE then
         code = code .. '{';
-        local head = fromLogicNodeToTable(node.head);
+        utils.dump_print(node);
+        local head = fromLogicNodeToTable((node.head or {})[#(node.head or {})]);
         local tail = fromLogicNodeToTable(node.tail);
         if head ~= 'nil' and tail == 'nil' then
             tail = '{}';
         end
+
         if head ~= 'nil' or tail ~= 'nil' then
             code = code .. 'head = ' .. head .. ', tail = ' .. tail;
+        end
+        if node.head and #node.head > 2 then
+            for i=#node.head, 1, -1 do
+                code = '{ head = ' .. fromLogicNodeToTable(node.head[i]) .. ', tail = ' .. code .. '}';
+            end
         end
         code = code .. '}';
     elseif node.node == NodeType.VALUE_NODE then
@@ -79,8 +86,13 @@ local function resolveFuncArgs(func_args, ret_by_binding)
     return code;
 end
 
-local checkItBinded = 'if not _logic_bindings_' .. bind_depth .. ' then return nil end;';
 local function handleLogicArgs(block_args, func_args)
+    local checkItBinded = 'if not _logic_bindings_' .. bind_depth;
+    if is_block_unique then
+        checkItBinded = checkItBinded .. ' then return nil end;'
+    else
+        checkItBinded = checkItBinded .. ' then goto _logic_continue_1 end;'
+    end
     local header = '';
     local footer = '';
     if not is_block_unique then
@@ -175,7 +187,7 @@ local function handleLogicStats(stats, containing_func_args)
                     code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
                     code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
                     code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
-                    code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')';
+                    code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')\n';
                     code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
                 end
             end

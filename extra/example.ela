@@ -1,22 +1,22 @@
-logic unique append(list1, list2, rez)
-    ({}, list2, list2) end
-    ({h|t}, list2, rez)
-        append(t, list2, rez_rec);
-        rez = {h|rez_rec};
+logic append(ls1, ls2, rezme)
+    ({}, ls2, ls2) end
+    ({h|t}, ls2, rezme)
+        append(t, ls2, rez_rec);
+        rezme = {h|rez_rec};
     end
 end
 
-logic unique flat(list, rez)
-    ({}, {}) end
-    ({h|t}, rez)
-        atom(h);
-        flat(t, rez_rec);
-        rez = {h|rez_rec};
+logic test(list, rez)
+    (list, rez) 
+        append({1, 2, 3}, list, rez_rec);
+        rez = rez_rec;
     end
-    ({h|t}, rez)
-        is_list(h);
-        flat(h, inner_rez);
-        flat(t, rez_rec);
-        append(inner_rez, rez_rec, rez);
+    (list, rez) 
+        append({2}, list, rez_rec);
+        rez = rez_rec
+    end
+    (list, rez) 
+        append({3}, list, rez_rec);
+        rez = rez_rec
     end
 end

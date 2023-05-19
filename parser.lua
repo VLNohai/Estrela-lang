@@ -1215,7 +1215,7 @@ function NODE.LOGIC_TABLE()
     SET(matchedHeadList, OPTIONAL_MULTIPLE(INDEX, TokenType.COMMA_MARK, NODE.LOGIC_VALUE)) and
     SET(matchedTail, OPTIONAL(INDEX, TokenType.CONCATENATION_OPERATOR, NODE.LOGIC_VALUE)) and
     MATCH(TokenType.RIGHT_BRACE_MARK) then
-        local head = matchedFirstHead.val[2];
+        local head = { [1] = matchedFirstHead.val[2] };
         for index, value in ipairs(matchedHeadList.val) do
             head[#head+1] = value[2];
         end
