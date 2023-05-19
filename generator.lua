@@ -60,7 +60,7 @@ local function fromLogicNodeToTable(node)
             code = code .. 'head = ' .. head .. ', tail = ' .. tail;
         end
         if node.head and #node.head > 2 then
-            for i=#node.head, 1, -1 do
+            for i=#node.head - 1, 1, -1 do
                 code = '{ head = ' .. fromLogicNodeToTable(node.head[i]) .. ', tail = ' .. code .. '}';
             end
         end
