@@ -1,22 +1,107 @@
-logic append(ls1, ls2, rezme)
-    ({}, ls2, ls2) end
-    ({h|t}, ls2, rezme)
-        append(t, ls2, rez_rec);
-        rezme = {h|rez_rec};
+logic move(x, y, newx, newy)
+    (x, y, newx, newy) 
+        newx -> x - 1;
+        newy -> y;
+    end
+    (x, y, newx, newy) 
+        newx -> x + 1;
+        newy -> y;
+    end
+    (x, y, newx, newy) 
+        newx -> x;
+        newy -> y - 1;
+    end
+    (x, y, newx, newy) 
+        newx -> x;
+        newy -> y + 1;
     end
 end
 
-logic test(list, rez)
-    (list, rez) 
-        append({1, 2, 3}, list, rez_rec);
-        rez = rez_rec;
+logic unique nth_helper(pos, list, index, rez)
+    (pos, {h|t}, pos, h) end
+    (pos, {h|t}, index, rez)
+        pos ~= index;
+        new_index -> index + 1;
+        nth_helper(pos, t, new_index, rez);
     end
-    (list, rez) 
-        append({2}, list, rez_rec);
-        rez = rez_rec
+end
+
+logic unique nth(pos, list, rez)
+    (pos, list, res) 
+        nth_helper(pos, list, 1, res);
     end
-    (list, rez) 
-        append({3}, list, rez_rec);
-        rez = rez_rec
+end
+
+logic unique getMatPos(i, j, mat, rez)
+    (i, j, mat, rez)
+        nth(i, mat, row);
+        nth(j, row, rez);
+    end
+end
+
+logic unique length(list, rez)
+    ({}, 0) end
+    ({h|t}, rez)
+        length(t, rez_rec);
+        rez -> rez_rec + 1;
+    end
+end
+
+logic unique notEqualPair(pone, ptwo)
+    ({x, y}, {a, b})
+        x ~= a;
+    end
+    ({x, y}, {a, b})
+        y ~= b;
+    end
+end
+
+logic unique wasVisited(pair, list)
+    (pair, {}) end
+    (pair, {h|t})
+        notEqualPair(pair, h);
+        wasVisited(pair, t);
+    end
+end
+
+logic unique validHelper(i, j, n, m, mat, visited)
+    (i, j, n, m, mat, visited)
+        i > 0;
+        j > 0;
+        i <= n;
+        j <= m;
+        getMatPos(i, j, mat, value);
+        wasVisited({i, j}, visited)
+        value ~= 1;
+    end
+end
+
+logic unique valid(i, j, mat, visited)
+    (i, j, {h|t}, visited)
+        length({h|t}, n);
+        length(h, m);
+        validHelper(i, j, n, m, {h|t}, visited);
+    end
+end
+
+logic getRoadHelper(current_i, current_j, mat, rez, visited)
+    (current_i, current_j, mat, {}, visited)
+        getMatPos(current_i, current_j, mat, value);
+        value == 2;
+    end
+    (current_i, current_j, mat, rez, visited)
+        getMatPos(current_i, current_j, mat, value);
+        value ~= 2;
+        new_visited = {{current_i, current_j}|visited};
+        move(current_i, current_j, new_i, new_j);
+        valid(new_i, new_j, mat, new_visited);
+        getRoadHelper(new_i, new_j, mat, rez_rec, new_visited);
+        rez = {{current_i, current_j}|rez_rec};
+    end
+end
+
+logic getRoad(mat, rez)
+    (mat, rez)
+        getRoadHelper(1, 1, mat, rez, {});
     end
 end

@@ -1240,11 +1240,16 @@ function NODE.LOGIC_VALUE()
         return matchedValue.val;
     end
 
+    local matchedNegative = {val = nil};
     if SET(matchedValue, MATCH(TokenType.IDENTIFIER)) then
         return { node = NodeType.LOGIC_IDENTIFIER_NODE, id = matchedValue.val.value};
     end
 
-    if SET(matchedValue, MATCH(TokenType.NUMBER_VALUE)) then
+    if SET(matchedNegative, OPTIONAL(INDEX, TokenType.MINUS_OPERATOR)) and 
+    SET(matchedValue, MATCH(TokenType.NUMBER_VALUE)) then
+        if matchedNegative.val.tokenType then
+            matchedValue.val.value = -matchedValue.val.value;
+        end
         return { node = NodeType.VALUE_NODE, value = matchedValue.val.value };
     end
 

@@ -49,7 +49,6 @@ local function fromLogicNodeToTable(node)
     end
     if node.node == NodeType.LOGIC_TABLE_NODE then
         code = code .. '{';
-        utils.dump_print(node);
         local head = fromLogicNodeToTable((node.head or {})[#(node.head or {})]);
         local tail = fromLogicNodeToTable(node.tail);
         if head ~= 'nil' and tail == 'nil' then
@@ -59,7 +58,7 @@ local function fromLogicNodeToTable(node)
         if head ~= 'nil' or tail ~= 'nil' then
             code = code .. 'head = ' .. head .. ', tail = ' .. tail;
         end
-        if node.head and #node.head > 2 then
+        if node.head and #node.head > 1 then
             for i=#node.head - 1, 1, -1 do
                 code = '{ head = ' .. fromLogicNodeToTable(node.head[i]) .. ', tail = ' .. code .. '}';
             end
@@ -192,7 +191,7 @@ local function handleLogicStats(stats, containing_func_args)
                 end
             end
         elseif stat.node == NodeType.LOGIC_ASSIGN_NODE then
-            code = code .. 'if not _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+            code = code .. 'if not _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') ' .. invalidate_stat;
         end
     end
     if is_block_unique then

@@ -21,10 +21,10 @@ end
 function logic.unify(a, b, bindings)
    if a == b then
       return bindings
-   elseif bindings[a] and bindings[b] and (bindings[a] == bindings[b]) then
-      return bindings;
    elseif  type(a) == "string" and type(b) == "string" then
-         if (not bindings[a]) and (not bindings[b]) then
+         if bindings[a] and bindings[b] and (bindings[a] == bindings[b]) then
+            return bindings;
+         elseif (not bindings[a]) and (not bindings[b]) then
             allocate_new(a, nil, bindings);
             bindings[b] = bindings[a];
          elseif not bindings[a] then
@@ -85,6 +85,8 @@ end
 function logic.unify_many(list1, list2, bindings)
    if not (list1 and list2) then return nil end;
     if #list1 ~= #list2 then
+        utils.dump_print(list1);
+        utils.dump_print(list2);
         print('unequal lists provided!');
         return nil;
     end
@@ -120,6 +122,9 @@ end
 function logic.substitute_vars(value, bindings)
    if type(value) == "string" then
       local bound_value = get_value(value, bindings)
+      if type(bound_value) == 'table' then
+         return logic.substitute_vars(bound_value, bindings);
+      end
       return bound_value or value
    elseif type(value) == "table" then
       local new_head = logic.substitute_vars(value.head, bindings)
