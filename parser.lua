@@ -274,8 +274,11 @@ function NODE.STAT()
     end
     INDEX = indexCpy;
 
-    if SET(matchedValues, MATCH(TokenType.LOCAL_KEYWORD, NODE.NAMELIST, TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
-        return {node = NodeType.LOCAL_DECLARATION, left = matchedValues.val[2], right = matchedValues.val[4]};
+    local matchedLeft = {val = nil};
+    local matchedRight = {val = nil};
+    if SET(matchedLeft, MATCH(TokenType.LOCAL_KEYWORD, NODE.NAMELIST)) and 
+    SET(matchedRight, OPTIONAL(INDEX, TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
+        return {node = NodeType.LOCAL_DECLARATION_NODE, left = matchedLeft.val[2], right = matchedRight.val[2]};
     end
     INDEX = indexCpy;
 
@@ -300,12 +303,12 @@ function NODE.STAT()
     INDEX = indexCpy;
 
     if SET(matchedValues, MATCH(TokenType.DO_KEYWORD, NODE.BLOCK, TokenType.END_KEYWORD)) then
-        return {node = NodeType.DO_LOOP, block = matchedValues.val[2].value};
+        return {node = NodeType.DO_BLOCK_NODE, block = matchedValues.val[2]};
     end
     INDEX = indexCpy;
 
     if SET(matchedValues, MATCH(TokenType.WHILE_KEYWORD, NODE.EXP, TokenType.DO_KEYWORD, NODE.BLOCK, TokenType.END_KEYWORD)) then
-        return {node = NodeType.WHILE_LOOP, condition = matchedValues.val[2], block = matchedValues.val[4]};
+        return {node = NodeType.WHILE_LOOP_NODE, condition = matchedValues.val[2], block = matchedValues.val[4]};
     end
     INDEX = indexCpy;
 
@@ -381,15 +384,17 @@ function NODE.STAT()
     end
     INDEX = indexCpy;
 
-    if SET(matchedValues, MATCH(TokenType.LOCAL_KEYWORD, TokenType.FUNCTION_KEYWORD, NODE.FUNCNAME, NODE.FUNCBODY)) then
-        return {node = NodeType.LOCAL_FUNCTION_DECLARATION_NODE, id = matchedValues.val[3], body = matchedValues.val[4]};
+    if SET(matchedValues, MATCH(TokenType.LOCAL_KEYWORD, TokenType.FUNCTION_KEYWORD, TokenType.IDENTIFIER, NODE.FUNCBODY)) then
+        return {node = NodeType.LOCAL_FUNCTION_DECLARATION_NODE, id = matchedValues.val[3].value, body = matchedValues.val[4]};
     end
     INDEX = indexCpy;
 
+    --[[
     if SET(matchedValues, MATCH(TokenType.LOCAL_KEYWORD, NODE.ATTNAMELIST) and OPTIONAL(INDEX, TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
         return true;
     end
     INDEX = indexCpy;
+    ]]
 
     local className = {val = nil};
     local baseClassName = {val = nil};
@@ -652,16 +657,11 @@ function NODE.VAR()
     local matchedSuffix = {val = nil};
     local matchedIndex = {val = nil};
     local matchedType = {val = nil};
-    if SET(matchedThis, OPTIONAL(INDEX, TokenType.THIS_KEYWORD, TokenType.POINT_MARK)) and 
-    SET(matchedPrefix, MATCH(NODE.PREFIX)) and 
+    if SET(matchedPrefix, MATCH(NODE.PREFIX)) and 
     SET(matchedSuffix, OPTIONAL_MULTIPLE_LEAVE_LAST(INDEX, NODE.SUFFIX)) and 
     SET(matchedIndex, MATCH(NODE.INDEX)) then
-        local hasThis = nil;
         local type = nil;
         local index = {};
-        if #matchedThis.val > 0 then
-            hasThis = true;
-        end
         if matchedType.val and #matchedType.val > 0 then
             type = matchedType.val[2].value;
         end
@@ -674,9 +674,8 @@ function NODE.VAR()
         index[#index+1] = matchedIndex.val;
         return {
             node = NodeType.VAR_NODE,
-            isThis = hasThis,
-            id = matchedPrefix.val,
-            index = index,
+            prefix = matchedPrefix.val,
+            suffix = index,
             type = type
         };
     end
@@ -684,24 +683,19 @@ function NODE.VAR()
 
     local matchedId = {val = nil};
     matchedType = {val = nil}
-    if SET(matchedThis, OPTIONAL(INDEX, TokenType.THIS_KEYWORD, TokenType.POINT_MARK)) and 
-    SET(matchedId, MATCH(TokenType.IDENTIFIER)) and 
+    if SET(matchedId, MATCH(TokenType.IDENTIFIER)) and 
     utils.makeTrue(
         SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.IDENTIFIER)) or
         SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.ANY_KEYWORD)) or
         SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.FUNCTION_KEYWORD))
     ) then
-        local hasThis = nil;
         local type = nil;
         local nodeType = NodeType.VAR_NODE;
-        if matchedThis and #matchedThis.val > 0 then
-            hasThis = true;
-        end
         if matchedType.val and #matchedType.val > 0 then
             type = matchedType.val[2].value;
             nodeType = NodeType.TYPED_VAR_NODE;
         end
-        return {node = nodeType, isThis = hasThis, id = matchedId.val.value, type = type};
+        return {node = nodeType, id = matchedId.val.value, type = type};
     end
     INDEX = indexCpy;
 
@@ -735,7 +729,8 @@ function NODE.NAME()
     if SET(matchedId, MATCH(TokenType.IDENTIFIER)) and 
     utils.makeTrue(
         SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.IDENTIFIER)) or
-        SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.ANY_KEYWORD))
+        SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.ANY_KEYWORD)) or
+        SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.FUNCTION_KEYWORD))
     )  then
         local type = nil;
         if matchedType.val ~= nil then
@@ -817,11 +812,8 @@ function NODE.VALUE()
         return {type = 'string', value = matchedValue.val.value}
     end
     if SET(matchedValue, MATCH(TokenType.TRIPLE_POINT_MARK)) then
-        return {type = 'table', value = matchedValue.val.value}
+        return {type = 'triplePoint', value = matchedValue.val.value}
     end
-    --[[if SET(matchedValue, MATCH(TokenType.FUNCTION_KEYWORD)) then
-        return {type = 'function', value = matchedValue.val.value}
-    end]]--
     if SET(matchedValue, MATCH(TokenType.NEW_KEYWORD, TokenType.IDENTIFIER, NODE.ARGS)) then
         return {type = matchedValue.val[2].value, node = NodeType.INSTANTIATION_NODE, id = matchedValue.val[2].value, args = matchedValue.val[3]};
     end
@@ -904,12 +896,12 @@ function NODE.CALL()
 
     local matchedCall = {val = nil};
     if SET(matchedCall, MATCH(NODE.ARGS)) then
-        return {node = NodeType.ARGS_NODE, args = matchedCall.val};
+        return {node = NodeType.CALL_NODE, args = matchedCall.val};
     end
     INDEX = indexCpy;
 
     if SET(matchedCall, MATCH(TokenType.COLON_OPERATOR, TokenType.IDENTIFIER, NODE.ARGS)) then
-        return {node = NodeType.INDEX_CALL_NODE, id = matchedCall.val[2], args = matchedCall.val[3]};
+        return {node = NodeType.SELF_CALL_NODE, id = matchedCall.val[2], args = matchedCall.val[3]};
     end
     INDEX = indexCpy;
 
@@ -1047,8 +1039,9 @@ end
 function NODE.TABLECONSTRUCTOR()
     local indexCpy = INDEX;
 
-    if MATCH(TokenType.LEFT_BRACE_MARK) and OPTIONAL(INDEX, NODE.FIELDLIST) and MATCH(TokenType.RIGHT_BRACE_MARK) then
-        return true;
+    local matchedFieldlist = {val = nil};
+    if MATCH(TokenType.LEFT_BRACE_MARK) and SET(matchedFieldlist, OPTIONAL(INDEX, NODE.FIELDLIST)) and MATCH(TokenType.RIGHT_BRACE_MARK) then
+        return {node = NodeType.TABLE_CONSTRUCTOR_NODE, fieldlist = matchedFieldlist.val};
     end
     INDEX = indexCpy;
 
@@ -1058,8 +1051,14 @@ end
 function NODE.FIELDLIST()
     local indexCpy = INDEX;
     
-    if MATCH(NODE.FIELD) and OPTIONAL_MULTIPLE(INDEX, NODE.FIELDSEP, NODE.FIELD) and OPTIONAL(INDEX, NODE.FIELDSEP) then
-        return true;
+    local firstField = {val = nil};
+    local fieldList = {val = nil};
+    if SET(firstField, MATCH(NODE.FIELD)) and SET(fieldList, OPTIONAL_MULTIPLE(INDEX, NODE.FIELDSEP, NODE.FIELD)) and OPTIONAL(INDEX, NODE.FIELDSEP) then
+        local fields = {[1] = firstField.val};
+        for index, field in ipairs(fieldList.val) do
+            fields[#fields+1] = field[2];
+        end
+        return {node = NodeType.FIELD_LIST_NODE, fields = fields };
     end
     INDEX = indexCpy;
 
@@ -1068,18 +1067,20 @@ end
 
 function NODE.FIELD()
     local indexCpy = INDEX;
-    if MATCH(TokenType.LEFT_SQR_BRACKET_MARK, NODE.EXP, TokenType.RIGHT_SQR_BRACKET_MARK, TokenType.ASSIGN_OPERATOR, NODE.EXP) then
-        return true;
+
+    local matchedValue = {val = nil};
+    if SET(matchedValue, MATCH(TokenType.LEFT_SQR_BRACKET_MARK, NODE.EXP, TokenType.RIGHT_SQR_BRACKET_MARK, TokenType.ASSIGN_OPERATOR, NODE.EXP)) then
+        return {node = NodeType.BRACKET_INDEX_NODE, index = matchedValue.val[2], exp = matchedValue.val[5]};
     end
     INDEX = indexCpy;
 
-    if MATCH(NODE.NAME, TokenType.ASSIGN_OPERATOR, NODE.EXP) then
-        return true;
+    if SET(matchedValue, MATCH(NODE.NAME, TokenType.ASSIGN_OPERATOR, NODE.EXP)) then
+        return {node = NodeType.NAME_ASSIGNMENT_NODE, left = matchedValue.val[1], right = matchedValue.val[3]};
     end
     INDEX = indexCpy;
 
-    if MATCH(NODE.EXP) then
-        return true;
+    if SET(matchedValue, MATCH(NODE.EXP)) then
+        return {node = NodeType.EXP_WRAPPER_NODE, exp = matchedValue.val};
     end
     INDEX = indexCpy;
 
@@ -1090,12 +1091,12 @@ function NODE.FIELDSEP()
     local indexCpy = INDEX;
 
     if MATCH(TokenType.COMMA_MARK) then
-        return true;
+        return ',';
     end
     INDEX = indexCpy;
 
     if MATCH(TokenType.SEMICOLON_MARK) then
-        return true;
+        return ';';
     end
     INDEX = indexCpy;
 
@@ -1124,7 +1125,7 @@ function NODE.BINOP()
        SET(matchedOp, MATCH(TokenType.NOT_EQUALS_OPERATOR)) or 
        SET(matchedOp, MATCH(TokenType.AND_KEYWORD)) or 
        SET(matchedOp, MATCH(TokenType.OR_KEYWORD)) then
-        return {node = NodeType.BINOP_NODE, symbol = matchedOp.val.tokenType};
+        return {node = NodeType.BINOP_NODE, symbol = matchedOp.val.tokenType, value = matchedOp.val.value};
     end
     INDEX = indexCpy;
 
@@ -1139,7 +1140,7 @@ function NODE.UNOP()
     SET(matchedOp, MATCH(TokenType.NOT_KEYWORD)) or 
     SET(matchedOp, MATCH(TokenType.HASH_OPERATOR)) or 
     SET(matchedOp, MATCH(TokenType.TILDE_OPERATOR)) then
-        return {node = NodeType.UNOP_NODE, symbol = matchedOp.val};
+        return {node = NodeType.UNOP_NODE, value = matchedOp.val.value};
     end
     INDEX = indexCpy;
 

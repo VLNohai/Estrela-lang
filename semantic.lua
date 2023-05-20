@@ -113,7 +113,6 @@ local function recursivePolish(exp)
 end
 
 local function resolveType(exp)
-    print('next type ' .. utils.dump(exp));
     if exp == nil then
         return 'nil';
     end
@@ -130,7 +129,6 @@ local function resolveType(exp)
     stack = utils.createStack();
     for key, value in pairs(polish) do
         if type(value) == 'string' then
-            print('in recusive polish value was ' .. value);
             stack:push(value);
         else
             local term2 = stack.top;
@@ -140,7 +138,6 @@ local function resolveType(exp)
             stack:push(operationType(term1, value, term2));
         end
     end
-    print('concluded as ' ..stack.top);
     return stack.top;
 end
 

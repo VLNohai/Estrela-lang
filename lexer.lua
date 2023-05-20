@@ -197,7 +197,7 @@ function lexer.lex(path)
             end
 
             if tokens.MapOperators[word] then
-                resultTokens[#resultTokens + 1] = {tokenType = tokens.MapOperators[word]; line = line; column = column - #word - 1};
+                resultTokens[#resultTokens + 1] = {tokenType = tokens.MapOperators[word]; line = line; column = column - #word - 1; value = word};
             end
         elseif c ~= nil then
             if not string.find(whitespace, c, 1, true) then

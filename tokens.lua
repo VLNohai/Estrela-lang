@@ -170,7 +170,7 @@ Tokens.NodeType = {
     LABEL_NODE = 6,
     BREAK_NODE = 7,
     GOTO_NODE = 8,
-    DO_LOOP_NODE = 9,
+    DO_BLOCK_NODE = 9,
     WHILE_LOOP_NODE = 10,
     IF_NODE = 11,
     FOR_CONTOR_LOOP_NODE = 12,
@@ -200,7 +200,7 @@ Tokens.NodeType = {
     INDEX_NODE = 37,
     CALL_NODE = 38,
     ARGS_NODE = 39,
-    INDEX_CALL_NODE = 40,
+    SELF_CALL_NODE = 40,
     FUNCTION_CALL_NODE = 41,
     PARAN_EXP_NODE = 42,
     UNEXP_NODE = 43,
@@ -214,7 +214,12 @@ Tokens.NodeType = {
     LOGIC_CHECK_NODE = 51,
     LOGIC_UNIFY_NODE= 52,
     LOGIC_FUNCTION_CALL_NODE = 53,
-    LOGIC_ASSIGN_NODE = 54
+    LOGIC_ASSIGN_NODE = 54,
+    REPEAT_LOOP_NODE = 55,
+    TABLE_CONSTRUCTOR_NODE = 56,
+    NAME_ASSIGNMENT_NODE = 57,
+    FIELD_LIST_NODE = 58,
+    EXP_WRAPPER_NODE = 59
 }
 
 return Tokens;

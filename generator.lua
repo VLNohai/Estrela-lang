@@ -4,6 +4,28 @@ Generator = {};
 MainOutputFile = io.open("output/main.lua", 'w')
 Code = "--end of dependencies\n";
 local dependencies = {};
+
+-----------------------BLOCK---------------------
+
+local statRouter;
+local generateExplist;
+local function generateBlock(ast)
+    local code = '';
+    if not ast then return '\n' end;
+    for index, stat in ipairs(ast.stats) do
+        if statRouter[stat.node] then
+            local temp = statRouter[stat.node](stat) .. '\n';
+            code = code .. temp;
+        end
+    end
+    if ast.retstat.expressions then
+        code = code .. 'return ' .. generateExplist(ast.retstat.expressions) .. ';\n';
+    end
+    return code;
+end
+
+-------------------------------------------------LOGIC GENERATION BLOCK-------------------------------------------------------------
+
 local scopePrefixString = '..scID';
 local bind_depth = 1;
 local is_block_unique = false;
@@ -215,28 +237,298 @@ local function tablesToLogicLists(args, id)
     return code;
 end
 
+-------------------------------------------------ASSIGNMENT NODE-------------------------------------------------------------
+
+local function generateName(name)
+    return name.id;
+end
+
+local function generateNamelist(namelist)
+    local code = '';
+    for index, name in ipairs(namelist) do
+        code = code .. generateName(name);
+        if index < #namelist then
+            code = code .. ',';
+        end
+    end
+    return code;
+end
+
+local function generateArgs(args)
+    local code = '';
+    code = code .. '(' .. generateExplist(args) .. ')';
+    return code;
+end
+
+local function generateCall(call)
+    local code = '';
+    if call then
+        if call.node == NodeType.CALL_NODE then
+            code = code .. generateArgs(call.args);
+        elseif call.call and call.call.node == NodeType.SELF_CALL_NODE then
+            code = code .. ':' .. code .. call.id .. generateArgs(call.args);
+        end
+    end
+    return code;
+end
+
+local generateExp;
+local function generateSuffix(suffixList)
+    local code = '';
+    for index, suffix in ipairs(suffixList) do
+        if suffix.node == NodeType.POINT_INDEX_NODE then
+            code = code .. '.' .. suffix.id;
+        elseif suffix.node == NodeType.BRACKET_INDEX_NODE then
+            code = code .. '[' .. generateExp(suffix.val) .. ']';
+        end
+    end
+    return code;
+end
+
+local function generatePrefix(var)
+    local code = '';
+    if type(var) == 'string' then
+        return var;
+    end
+    if type(var.prefix) == "string" then
+        code = code .. var.prefix;
+    else
+        utils.dump_print(var);
+         code = code .. '(' .. generateExp(var.exp)  .. ')';
+    end
+     return code;
+end
+
+local function generateVar(var)
+    local code = '';
+    if var.id then
+        code = code .. var.id;
+        --typecheck
+    else
+        code = code .. generatePrefix(var);
+        code = code .. generateSuffix(var.suffix);
+        code = code .. generateCall(var.call);
+    end
+    return code;
+end
+
+local function generateField(field)
+    local code = '';
+    utils.dump_print(field.node);
+    if field.node == NodeType.BRACKET_INDEX_NODE then
+        return '[' .. generateExp(field.index) .. '] = ' .. generateExp(field.exp);
+    elseif field.node == NodeType.NAME_ASSIGNMENT_NODE then
+        return generateName(field.left) .. '=' .. generateExp(field.right);
+    elseif field.node == NodeType.EXP_WRAPPER_NODE then
+        return generateExp(field.exp);
+    end
+    return code;
+end
+
+local function generateFieldList(filedlist)
+    local code = '';
+    for index, field in ipairs(filedlist) do
+        code = code .. generateField(field) .. ';';
+    end
+    return code;
+end
+
+local function generateTableConst(tableConst)
+    local code = '{';
+    if tableConst.fieldlist.fields then
+        generateFieldList(tableConst.fieldlist.fields);
+    end
+    code = code .. '}';
+    return code;
+end
+
+local generateFunctioncall;
+local function generateValue(value)
+    local code = '';
+    if value.type == 'nil' then
+        return 'nil';
+    elseif value.type == 'boolean' or 
+           value.type == 'number' or
+           value.type == 'string'
+    then
+        return value.value;
+    elseif  value.type == 'var' then
+        return generateVar(value.value);
+    elseif value.type == 'functioncall' then
+        return generateFunctioncall(value.value);
+    elseif value.type == 'triplePoint' then
+        return '...';
+    elseif value.type == 'table' then
+        return generateTableConst(value.value);
+    elseif value.node == NodeType.PARAN_EXP_NODE then
+        return '(' .. generateExp(value.exp) .. ')';
+    end
+    return code;
+end
+
+generateExp = function(exp)
+    local code = '';
+    if exp.node == NodeType.EVALUABLE_NODE then
+        code = code .. generateValue(exp.exp);
+        if exp.op then
+            code = code .. exp.op.binop.value .. generateExp(exp.op.term);
+        end
+    end
+    if exp.node == NodeType.UNEXP_NODE then
+        code = code .. exp.unop.value .. ' ' .. generateExp(exp.exp);
+    end
+    return code;
+end
+
+local function generateVarlist(varlist)
+    local code = '';
+    for index, var in ipairs(varlist) do
+        code = code .. generateVar(var);
+        if index < #varlist then
+            code = code .. ',';
+        end
+    end
+    return code;
+end
+
+generateExplist = function(explist)
+    local code = '';
+    for index, exp in ipairs(explist) do
+        code = code .. generateExp(exp);
+        if index < #explist then
+            code = code .. ',';
+        end
+    end
+    return code;
+end
+
+generateFunctioncall = function(functioncall)
+    local code = '';
+    code = code .. generatePrefix(functioncall.prefix);
+    code = code .. generateSuffix(functioncall.suffix);
+    code = code .. generateCall(functioncall.call);
+    return code;
+end
+
+local function generateFuncname(funcname)
+    local code = '';
+    for index, name in ipairs(funcname) do
+        if index < #funcname then
+            if index > 1 then
+                code = code .. '.';
+            end 
+            code = code .. name;
+        end
+    end
+    if #funcname > 1 then
+        if funcname.isSelf then
+            code = code .. ':' .. funcname[#funcname];
+        else
+            code = code .. '.' .. funcname[#funcname];
+        end
+    else
+        code = code .. funcname[1];
+    end
+    return code;
+end
+
+local function generateParlist(parlist)
+    local code = generateNamelist(parlist.namelist);
+    if parlist.isTriple then
+        code = code .. ', ...';
+    end
+    return code;
+end
+
+local function generateFuncbody(funcbody)
+    local code = '(';
+    if funcbody.parlist.namelist then
+        code = code .. generateParlist(funcbody.parlist);
+    end
+    code = code .. ')\n' .. generateBlock(funcbody.block) .. 'end';
+    return code;
+end
+
 function Generator.generate(ast)
     local astfile = io.open('extra/ast.ast', 'w');
     os.execute('mkdir "' .. 'output/deps' .. '" > nul 2>&1')
     if not astfile then return; end;
     astfile:write(utils.dump(ast));
+    statRouter = {};
 
-    local statRouter = {};
-    --[[
-    statRouter[NodeType.ASSIGNMENT_NODE] = function (assignment)
-        for index, var in ipairs(assignment.left) do
-            Code = Code .. var.id;
-            if index < #assignment.left then
-                Code = Code .. ',';
+    statRouter[NodeType.FUNCTION_DECLARATION_NODE] = function (funcDecStat)
+        return 'function ' .. generateFuncname(funcDecStat.id)
+            .. generateFuncbody(funcDecStat.body);
+    end
+
+    statRouter[NodeType.LOCAL_FUNCTION_DECLARATION_NODE] = function (funcDecStat)
+        return 'function ' .. funcDecStat.id .. generateFuncbody(funcDecStat.body);
+    end
+
+    statRouter[NodeType.FOR_IN_LOOP_NODE] = function (forStat)
+        return 'for ' .. generateNamelist(forStat.left) 
+        .. ' in ' .. generateExplist(forStat.right) .. ' do\n'
+        .. generateBlock(forStat.block) .. 'end';
+    end
+
+    statRouter[NodeType.FOR_CONTOR_LOOP_NODE] = function (forStat)
+        local code =  'for ' .. forStat.contorName .. '=' .. generateExp(forStat.contorValue)
+        .. ', ' .. generateExp(forStat.stopValue) .. ', ';
+        if forStat.increment then
+            code = code .. generateExp(forStat.increment);
+        end
+        code = code .. ' do\n' .. generateBlock(forStat.block) .. 'end';
+        return code;
+    end
+
+    statRouter[NodeType.IF_NODE] = function (ifStatement)
+        local code = 'if ';
+        for index, branch in ipairs(ifStatement.branches) do
+            if index > 1 then
+                code = code .. 'elseif ';
             end
+                code = code .. generateExp(branch.condition) .. ' then\n';
+                code = code .. generateBlock(branch.block);
         end
-        Code = Code .. ' = 1;';
-        if assignment.checkAtRuntime then
-            --print('add an assert!');
-        else
-            --print('was certain');
+        if ifStatement.elseBranch then
+            code = code .. 'else\n' .. generateBlock(ifStatement.elseBranch.block);
         end
-    end]]
+        code = code .. 'end\n'
+        return code;
+    end
+
+    statRouter[NodeType.REPEAT_LOOP_NODE] = function (repeatStatement)
+        return 'repeat\n' .. generateBlock(repeatStatement.block) .. 
+            'until ' .. generateExp(repeatStatement.condition) .. ';';
+    end
+
+    statRouter[NodeType.WHILE_LOOP_NODE] = function (whileStat)
+        return 'while ' .. generateExp(whileStat.condition) .. ' do\n'
+               .. generateBlock(whileStat.block) .. 'end\n';
+    end
+
+    statRouter[NodeType.DO_BLOCK_NODE] = function(doBlock)
+        return 'do\n' .. generateBlock(doBlock.block) .. 'end\n';
+    end
+
+    statRouter[NodeType.LOCAL_DECLARATION_NODE] = function (declaration)
+        local code =  'local ' .. generateNamelist(declaration.left)  
+        if declaration.right then
+           code = code .. ' = ' .. generateExplist(declaration.right); 
+        end
+        code = code .. ';';
+        return code;
+    end
+
+    statRouter[NodeType.FUNCTION_CALL_NODE] = function (functioncall)
+        return generateFunctioncall(functioncall) .. ';';
+    end
+
+    statRouter[NodeType.ASSIGNMENT_NODE] = function (assign)
+        local localCode = '';
+        localCode = localCode .. generateVarlist(assign.left) .. ' = ' .. generateExplist(assign.right) .. ';';
+        return localCode;
+    end
 
     statRouter[NodeType.LOGIC_BLOCK_NODE] = function (block)
         local localCode = '';
@@ -290,7 +582,6 @@ function Generator.generate(ast)
             Code = Code .. temp;
         end
     end
-
     MainOutputFile:write(Code);
     --os.execute('start cmd /c "lua output/main.ela && pause"')
 end

@@ -7,10 +7,8 @@ end
 
 function utils.createStack()
     local stack = {size = 0, values = {}, top = nil};
-    print('created new stack with size ' .. stack.size);
 
     function stack:push(element)
-        print('pushed ' .. element);
         self.size = self.size + 1; self.values[self.size] = element; self.top = element; 
     end
 
@@ -45,7 +43,6 @@ end
 
 function utils.reverse(list)
     for i=1, #list/2, 1 do
-        print(i);
         list[i], list[#list - i + 1] = list[#list - i + 1], list[i];
     end
     return list;
