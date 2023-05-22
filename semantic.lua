@@ -228,10 +228,25 @@ local function declareClass(classDecNode)
         addNewError('found redeclaration of type ' .. classDecNode.id);
         return;
     end
-    declaredTypes[classDecNode.id] = {constructors = {}, fields = {}};
+    if classDecNode.baseClassId then
+        local baseCst = declaredTypes[classDecNode.baseClassId].constructors;
+        local foundCst = nil;
+        for index, cst in ipairs(baseCst) do
+            if equivalentArgs(cst, classDecNode.baseClassArgs) then
+                foundCst = index;
+            end
+        end
+        if not foundCst then addNewError("can't resolve constructor for base class " .. classDecNode.baseClassId .. ' of ' .. classDecNode.id) end;
+        classDecNode.IndexOfBaseConstructor = foundCst;
+    end
+    declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, abstactMethods = {}};
     for index, stat in ipairs(classDecNode.stats)  do
         if stat.node == NodeType.CONSTRUCTOR_NODE then
             addConstructor(classDecNode.id, stat);
+        elseif stat.node == NodeType.ABSTRACT_METHOD_NODE then
+            local abstracts = declaredTypes[classDecNode.id].abstactMethods;
+            abstracts[#abstracts+1] = {id = stat.id, args = {}};
+            classDecNode.isAbstract = true;
         end
     end
 end
@@ -310,7 +325,6 @@ end
 local function traverse(currentNode)
     for key, value in pairs(currentNode) do
         if type(value) == 'table' then
-
             --ASSIGNMENT_NODE
             --if value.node == NodeType.ASSIGNMENT_NODE then
                 --excludeExplicitTypes(value.right);

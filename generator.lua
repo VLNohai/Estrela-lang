@@ -246,11 +246,9 @@ local function generateName(name)
     return name.id;
 end
 
-local isConstructor = false;
 local function generateNamelist(namelist, classId)
     local code = '';
     if not classId then classId = '' else classId = classId .. '.' end
-    if isConstructor then code = code .. 'self,' end
     for index, name in ipairs(namelist) do
         code = code .. classId .. generateName(name);
         if index < #namelist then
@@ -378,7 +376,9 @@ local function generateValue(value)
     elseif value.node == NodeType.PARAN_EXP_NODE then
         return '(' .. generateExp(value.exp) .. ')';
     elseif value.node == NodeType.INSTANTIATION_NODE  then
-        return value.id .. ':' .. 'new(' .. value.indexOfMatch .. ',' .. generateExplist(value.args) .. ')';
+        code =  value.id .. ':' .. 'new(' .. value.indexOfMatch
+        if #value.args > 0 then code = code .. ',' .. generateExplist(value.args); end
+        code = code .. ')';
     end
     return code;
 end
@@ -524,15 +524,47 @@ local function generateLogicBlock(block, memberOf)
     return localCode;
 end
 
-local function generateClassStats(classId, stats)
+local function generateInstantiationFunc(classDeclaration)
+    local code = '';
+    code = code .. 'function ' .. classDeclaration.id .. ':new(constructor, ...)\n'
+    code = code .. 'local _class_obj;\n';
+    code = code .. '_class_obj = _dep_utils.deepCopy(' .. classDeclaration.id .. ', _class_obj);\n';
+    code = code .. 'setmetatable(_class_obj, self)\n';
+    code = code .. 'self.__index = self\n';
+    code = code .. '_class_obj.constructor[constructor](_class_obj, ...);';
+    code = code .. '_class_obj.constructor = nil;\n';
+    code = code ..  'return _class_obj\n';
+    code = code .. 'end;\n';
+    return code;
+end
+
+local function inheritInConstructor(baseId, baseArgs, ihtCstIndex)
+    local code = '';
+    code = code .. 'self = _dep_utils.deepCopy(' .. baseId .. ', self)\n';
+    code = code .. baseId .. '.constructor[' .. ihtCstIndex .. ']' .. '(self'; 
+    if #baseArgs > 0 then
+        code = code .. ',' .. generateExplist(baseArgs);
+    end
+    code = code .. ')\n';
+    return code;
+end
+
+local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
     local code = '';
     for index, stat in ipairs(stats) do
         if stat.node == NodeType.MEMBER_FUNCTION_NODE then
                 code = code .. 'function ' .. classId .. ':' .. stat.id .. generateFuncbody(stat.body) .. '\n';
         elseif stat.node == NodeType.CONSTRUCTOR_NODE then
-            isConstructor = true;
-            code = code .. classId ..  '.constructor[#' .. classId .. '.constructor+1] = ' .. generateLambdaFunc(stat.body) .. '\n';
-            isConstructor = false;
+            code = code .. classId ..  '.constructor[#' .. classId .. '.constructor+1] = function(self';
+            if stat.body.parlist.namelist then
+                code = code .. ',' .. generateNamelist(stat.body.parlist.namelist);
+            end
+            code = code .. ')\n';
+            if baseId then
+                code = code .. inheritInConstructor(baseId, baseArgs, ihtCstIndex);
+            end
+            code = code .. generateBlock(stat.body.block); 
+            code = code .. 'end\n';
         elseif stat.node == NodeType.LOGIC_BLOCK_NODE then
             if stat.access == 'private' then
                 stat.isLocal = true;
@@ -649,23 +681,15 @@ function Generator.generate(ast)
         loadDependency('utils', true);
         local oldThisIndex = currentThisIndex;
         currentThisIndex = 'self.';
-        local code = classDeclaration.id .. ' = ';
-        if classDeclaration.baseClassId then
-            code = code .. classDeclaration.baseClassId .. ':new()\n';
-        else
-            code = code .. '{};\n';
-        end
+        local code = classDeclaration.id .. ' = {}';
         code = code .. 'do\n';
         code = code .. classDeclaration.id .. '.' .. 'constructor = {};\n'
-        code = code .. 'function ' .. classDeclaration.id .. ':new(constructor, ...)\n'
-        code = code .. 'local _class_obj = _dep_utils.deepCopy(' .. classDeclaration.id .. ');\n';
-        code = code .. 'setmetatable(_class_obj, self)\n';
-        code = code .. 'self.__index = self\n';
-        code = code .. '_class_obj.constructor[constructor](_class_obj, ...);';
-        code = code .. '_class_obj.constructor = nil;\n';
-        code = code ..  'return _class_obj\n';
-        code = code .. 'end;\n';
-        code = code .. generateClassStats(classDeclaration.id, classDeclaration.stats);
+
+        if not classDeclaration.isAbstract then
+            code = code .. generateInstantiationFunc(classDeclaration);
+        end
+
+        code = code .. generateClassStats(classDeclaration.id, classDeclaration.stats, classDeclaration.baseClassId, classDeclaration.baseClassArgs, classDeclaration.IndexOfBaseConstructor);
         code = code .. 'end\n'
 
         currentThisIndex = oldThisIndex;

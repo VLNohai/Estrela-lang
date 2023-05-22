@@ -89,25 +89,37 @@ function utils.homogeouns_array(map, maxn)
     return array;
 end
 
-function utils.deepCopy(orig, copies)
+function utils.deepCopy(orig, target, copies, visited)
     copies = copies or {}
+    visited = visited or {}
     local orig_type = type(orig)
     local copy
+
     if orig_type == 'table' then
         if copies[orig] then
             copy = copies[orig]
         else
-            copy = {}
+            copy = target or {}
             copies[orig] = copy
+            visited[copy] = true
             for orig_key, orig_value in next, orig, nil do
-                copy[utils.deepCopy(orig_key, copies)] = utils.deepCopy(orig_value, copies)
+                if copy[orig_key] == nil then
+                    local orig_key_copy = utils.deepCopy(orig_key, nil, copies, visited)
+                    local orig_value_copy = utils.deepCopy(orig_value, nil, copies, visited)
+                    copy[orig_key_copy] = orig_value_copy
+                end
             end
-            setmetatable(copy, utils.deepCopy(getmetatable(orig), copies))
+            local orig_metatable = getmetatable(orig)
+            if orig_metatable and not visited[orig_metatable] then
+                local metatable_copy = utils.deepCopy(orig_metatable, nil, copies, visited)
+                setmetatable(copy, metatable_copy)
+            end
         end
     else
         copy = orig
     end
     return copy
 end
+
 
 return utils;

@@ -397,16 +397,18 @@ function NODE.STAT()
     ]]
 
     local className = {val = nil};
-    local baseClassName = {val = nil};
+    local baseClass = {val = nil};
     local classBody = {val = nil};
     if SET(className, MATCH(TokenType.CLASS_KEYWORD, TokenType.IDENTIFIER)) and 
-    SET(baseClassName, OPTIONAL(INDEX, TokenType.COLON_OPERATOR, TokenType.IDENTIFIER)) and
+    SET(baseClass, OPTIONAL(INDEX, TokenType.COLON_OPERATOR, TokenType.IDENTIFIER, NODE.ARGS)) and
     SET(classBody, MATCH(TokenType.AS_KEYWORD, NODE.CLASSBODY)) then
         local baseClassId = nil;
-        if #baseClassName.val > 0 then
-            baseClassId = baseClassName.val[2].value;
+        local baseClassArgs = nil;
+        if #baseClass.val > 0 then
+            baseClassId = baseClass.val[2].value;
+            baseClassArgs = baseClass.val[3];
         end
-        return {node = NodeType.CLASS_DECLARATION_NODE, id = className.val[2].value, baseClassId = baseClassId, stats = classBody.val[2].stats};
+        return {node = NodeType.CLASS_DECLARATION_NODE, id = className.val[2].value, baseClassId = baseClassId, stats = classBody.val[2].stats, baseClassArgs = baseClassArgs};
     end
     INDEX = indexCpy;
 
@@ -499,8 +501,8 @@ function NODE.CLASSSTAT()
     INDEX = indexCpy;
 
     local matchedArgs = {val = nil};
-    if MATCH(TokenType.INTERFACE_KEYWORD) and SET(matchedArgs, MATCH(TokenType.IDENTIFIER, NODE.ARGS)) then
-        return { node = NodeType.INTERFACE_NODE, args = matchedArgs.val[2], id = matchedArgs.val[1]; }
+    if MATCH(TokenType.ABSTRACT_KEYWORD) and SET(matchedArgs, MATCH(TokenType.IDENTIFIER, NODE.ARGS)) then
+        return { node = NodeType.ABSTRACT_METHOD_NODE, args = matchedArgs.val[2], id = matchedArgs.val[1].value; }
     end
     INDEX = indexCpy;
 

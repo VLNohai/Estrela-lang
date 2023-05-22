@@ -68,7 +68,7 @@ Tokens.TokenType = {
     CONSTRUCTOR_KEYWORD = 60,
     CLASS_KEYWORD = 61,
     STATIC_KEYWORD = 62,
-    INTERFACE_KEYWORD = 63,
+    ABSTRACT_KEYWORD = 63,
     AS_KEYWORD = 64,
     PUBLIC_KEYWORD = 65,
     PRIVATE_KEYWORD = 66,
@@ -110,7 +110,7 @@ Tokens.MapKeywords = {
     ['constructor'] = Tokens.TokenType.CONSTRUCTOR_KEYWORD,
     ['class'] = Tokens.TokenType.CLASS_KEYWORD,
     ['static'] = Tokens.TokenType.STATIC_KEYWORD,
-    ['interface'] = Tokens.TokenType.INTERFACE_KEYWORD,
+    ['abstract'] = Tokens.TokenType.ABSTRACT_KEYWORD,
     ['as'] = Tokens.TokenType.AS_KEYWORD,
     ['public'] = Tokens.TokenType.PUBLIC_KEYWORD,
     ['private'] = Tokens.TokenType.PRIVATE_KEYWORD,
@@ -220,7 +220,7 @@ Tokens.NodeType = {
     NAME_ASSIGNMENT_NODE = 57,
     FIELD_LIST_NODE = 58,
     EXP_WRAPPER_NODE = 59,
-    INTERFACE_NODE = 60
+    ABSTRACT_METHOD_NODE = 60
 }
 
 return Tokens;
