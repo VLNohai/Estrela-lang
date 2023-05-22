@@ -414,7 +414,9 @@ function NODE.STAT()
     local matchedFunctions = { val = nil };
     local matchedID = {val = nil};
     local matchedUnique = {val = nil};
-    if MATCH(TokenType.LOGIC_KEYWORD) and
+    local isLocal = {val = nil};
+    if SET(isLocal, OPTIONAL(INDEX, TokenType.LOCAL_KEYWORD)) and
+    MATCH(TokenType.LOGIC_KEYWORD) and
     SET(matchedUnique, OPTIONAL(INDEX, TokenType.UNIQUE_KEYWORD)) and
     SET(matchedID, MATCH(TokenType.IDENTIFIER)) and
     SET(matchedNames, MATCH(NODE.LOGIC_NAMELIST)) and
@@ -424,7 +426,7 @@ function NODE.STAT()
         if matchedUnique.val.value then
             is_unique = true;
         end
-        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val};
+        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val, isLocal = isLocal};
     end
     INDEX = indexCpy;
 
@@ -491,8 +493,14 @@ function NODE.CLASSSTAT()
             access = access, 
             static = static, 
             id = funcBody.val[1].value, 
-            functionBody = funcBody.val[2]
+            body = funcBody.val[2]
         };
+    end
+    INDEX = indexCpy;
+
+    local matchedArgs = {val = nil};
+    if MATCH(TokenType.INTERFACE_KEYWORD) and SET(matchedArgs, MATCH(TokenType.IDENTIFIER, NODE.ARGS)) then
+        return { node = NodeType.INTERFACE_NODE, args = matchedArgs.val[2], id = matchedArgs.val[1]; }
     end
     INDEX = indexCpy;
 
@@ -501,7 +509,7 @@ function NODE.CLASSSTAT()
     if SET(accessMod, OPTIONAL(INDEX, NODE.ACCESSMOD)) and 
     SET(staticMod, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and  
     SET(nameList, MATCH(NODE.NAMELIST)) and 
-    SET(expList, MATCH(TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
+    SET(expList, OPTIONAL(INDEX, TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
         local access = 'private';
         local static = nil;
         if #accessMod.val > 0 then
@@ -511,12 +519,31 @@ function NODE.CLASSSTAT()
             static = true;
         end
         return {
-            node = NodeType.FIELD_DELCARATION_NODE,
+            node = NodeType.CLASS_FIELD_DELCARATION_NODE,
             access = access,
             static = static,
             left = nameList.val,
             right = expList.val[2]
         };
+    end
+    INDEX = indexCpy;
+
+    local matchedNames = { val = nil };
+    local matchedFunctions = { val = nil };
+    local matchedID = {val = nil};
+    local matchedUnique = {val = nil};
+    if SET(accessMod, OPTIONAL(INDEX, NODE.ACCESSMOD)) and
+    MATCH(TokenType.LOGIC_KEYWORD) and
+    SET(matchedUnique, OPTIONAL(INDEX, TokenType.UNIQUE_KEYWORD)) and
+    SET(matchedID, MATCH(TokenType.IDENTIFIER)) and
+    SET(matchedNames, MATCH(NODE.LOGIC_NAMELIST)) and
+    SET(matchedFunctions, OPTIONAL_MULTIPLE(INDEX, NODE.LOGIC_FUNC)) and 
+    MATCH(TokenType.END_KEYWORD) then
+        local is_unique = nil;
+        if matchedUnique.val.value then
+            is_unique = true;
+        end
+        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val, access = accessMod.val};
     end
     INDEX = indexCpy;
 
@@ -683,7 +710,9 @@ function NODE.VAR()
 
     local matchedId = {val = nil};
     matchedType = {val = nil}
-    if SET(matchedId, MATCH(TokenType.IDENTIFIER)) and 
+    local isThis = {val = nil};
+    if SET(isThis, OPTIONAL(INDEX, TokenType.THIS_KEYWORD, TokenType.POINT_MARK)) and 
+    SET(matchedId, MATCH(TokenType.IDENTIFIER)) and 
     utils.makeTrue(
         SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.IDENTIFIER)) or
         SET(matchedType, MATCH(TokenType.AT_OPERATOR, TokenType.ANY_KEYWORD)) or
@@ -695,7 +724,11 @@ function NODE.VAR()
             type = matchedType.val[2].value;
             nodeType = NodeType.TYPED_VAR_NODE;
         end
-        return {node = nodeType, id = matchedId.val.value, type = type};
+        local this = nil;
+        if #isThis.val > 0 then
+            this = true;
+        end
+        return {node = nodeType, id = matchedId.val.value, type = type, isThis = this};
     end
     INDEX = indexCpy;
 
@@ -901,7 +934,7 @@ function NODE.CALL()
     INDEX = indexCpy;
 
     if SET(matchedCall, MATCH(TokenType.COLON_OPERATOR, TokenType.IDENTIFIER, NODE.ARGS)) then
-        return {node = NodeType.SELF_CALL_NODE, id = matchedCall.val[2], args = matchedCall.val[3]};
+        return {node = NodeType.SELF_CALL_NODE, id = matchedCall.val[2].value, args = matchedCall.val[3]};
     end
     INDEX = indexCpy;
 
@@ -914,14 +947,22 @@ function NODE.FUNCTIONCALL()
     local matchedPrefix = {val = nil};
     local matchedSuffixList = {val = nil};
     local matchedCall = {val = nil};
-    if SET(matchedPrefix, MATCH(NODE.PREFIX)) and 
+    local isThis = {val = nil};
+    if SET(isThis, OPTIONAL(INDEX, TokenType.THIS_KEYWORD, TokenType.POINT_MARK)) and 
+    SET(matchedPrefix, MATCH(NODE.PREFIX)) and 
     SET(matchedSuffixList, OPTIONAL_MULTIPLE_LEAVE_LAST(INDEX, NODE.SUFFIX)) and 
     SET(matchedCall, MATCH(NODE.CALL)) then
+        local this = nil;
+        if #isThis.val > 0 then
+            print("was this");
+            this = true;
+        end
         return {
             node = NodeType.FUNCTION_CALL_NODE,
             prefix = matchedPrefix.val,
             suffix = matchedSuffixList.val,
-            call = matchedCall.val
+            call = matchedCall.val,
+            isThis = this
         };
     end
 
@@ -978,10 +1019,8 @@ function NODE.LAMBDAFUNC()
     local matchedFuncBody = {val = nil};
     if SET(matchedFuncBody, MATCH(TokenType.FUNCTION_KEYWORD, NODE.FUNCBODY)) then
         return {
-            parlist = matchedFuncBody.val[2].parlist,
-            type = 'function',
-            returnType = matchedFuncBody.val[2].type,
-            block = matchedFuncBody.val[2].block
+            node = NodeType.LAMBDA_FUNC_NODE,
+            body = matchedFuncBody.val[2];
         };
     end
     INDEX = indexCpy;

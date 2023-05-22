@@ -1,6 +1,25 @@
-local a = 0;
-while a < 5 do
-    a = a + 1;
+logic select(x, y, z)
+    (x, {x|xs}, xs) end
+    (x, {y|ys}, {y|zs})
+        select(x, ys, zs);
+    end
 end
 
-print(a);
+logic permute(list, rez)
+    ({}, {}) end
+    (list, {x|perm})
+        select(x, list, rest);
+        permute(rest, perm);
+    end
+end
+
+local co = coroutine.create(select);
+local _, temp = coroutine.resume(co, nil, {1, 2, 3}, nil);
+_dep_utils.dump_print(temp);
+print(_Logic_stack_depth);
+local _, temp = coroutine.resume(co, nil, {1, 2, 3}, nil);
+_dep_utils.dump_print(temp);
+print(_Logic_stack_depth);
+local _, temp = coroutine.resume(co, nil, {1, 2, 3}, nil);
+_dep_utils.dump_print(temp);
+print(_Logic_stack_depth);

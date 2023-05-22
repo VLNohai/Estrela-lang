@@ -26,16 +26,17 @@ end
 
 -------------------------------------------------LOGIC GENERATION BLOCK-------------------------------------------------------------
 
-local scopePrefixString = '..scID';
+local scopePrefixString = "..'#'..scID";
 local bind_depth = 1;
 local is_block_unique = false;
 
-local function writeFunction(is_local, name, args, body_as_string)
+local function writeFunction(is_local, name, args, body_as_string, memberOf)
     local code = '';
+    if not memberOf then memberOf = '' else memberOf = memberOf .. '.' end;
     if is_local then
         code = code .. 'local ';
     end
-    code = code .. 'function ' .. name .. '(';
+    code = code .. 'function ' .. memberOf .. name .. '(';
     if #args > 0 then
         code = code .. args[1];
         for index, arg in ipairs(utils.remove_first_n(args, 1)) do
@@ -239,14 +240,19 @@ end
 
 -------------------------------------------------ASSIGNMENT NODE-------------------------------------------------------------
 
+local currentThisIndex = '';
+
 local function generateName(name)
     return name.id;
 end
 
-local function generateNamelist(namelist)
+local isConstructor = false;
+local function generateNamelist(namelist, classId)
     local code = '';
+    if not classId then classId = '' else classId = classId .. '.' end
+    if isConstructor then code = code .. 'self,' end
     for index, name in ipairs(namelist) do
-        code = code .. generateName(name);
+        code = code .. classId .. generateName(name);
         if index < #namelist then
             code = code .. ',';
         end
@@ -265,7 +271,7 @@ local function generateCall(call)
     if call then
         if call.node == NodeType.CALL_NODE then
             code = code .. generateArgs(call.args);
-        elseif call.call and call.call.node == NodeType.SELF_CALL_NODE then
+        elseif call.node == NodeType.SELF_CALL_NODE then
             code = code .. ':' .. code .. call.id .. generateArgs(call.args);
         end
     end
@@ -293,8 +299,7 @@ local function generatePrefix(var)
     if type(var.prefix) == "string" then
         code = code .. var.prefix;
     else
-        utils.dump_print(var);
-         code = code .. '(' .. generateExp(var.exp)  .. ')';
+        code = code .. '(' .. generateExp(var.exp)  .. ')';
     end
      return code;
 end
@@ -303,6 +308,9 @@ local function generateVar(var)
     local code = '';
     if var.id then
         code = code .. var.id;
+        if var.isThis then
+            code = currentThisIndex .. code;
+        end
         --typecheck
     else
         code = code .. generatePrefix(var);
@@ -314,7 +322,6 @@ end
 
 local function generateField(field)
     local code = '';
-    utils.dump_print(field.node);
     if field.node == NodeType.BRACKET_INDEX_NODE then
         return '[' .. generateExp(field.index) .. '] = ' .. generateExp(field.exp);
     elseif field.node == NodeType.NAME_ASSIGNMENT_NODE then
@@ -336,9 +343,16 @@ end
 local function generateTableConst(tableConst)
     local code = '{';
     if tableConst.fieldlist.fields then
-        generateFieldList(tableConst.fieldlist.fields);
+        code =  code .. generateFieldList(tableConst.fieldlist.fields);
     end
     code = code .. '}';
+    return code;
+end
+
+local generateFuncbody;
+local function generateLambdaFunc(lmd)
+    local code = 'function';
+    code = code .. generateFuncbody(lmd);
     return code;
 end
 
@@ -348,10 +362,11 @@ local function generateValue(value)
     if value.type == 'nil' then
         return 'nil';
     elseif value.type == 'boolean' or 
-           value.type == 'number' or
-           value.type == 'string'
+           value.type == 'number'
     then
         return value.value;
+    elseif value.type == 'string' then
+        return "'" .. value.value .. "'";
     elseif  value.type == 'var' then
         return generateVar(value.value);
     elseif value.type == 'functioncall' then
@@ -362,6 +377,8 @@ local function generateValue(value)
         return generateTableConst(value.value);
     elseif value.node == NodeType.PARAN_EXP_NODE then
         return '(' .. generateExp(value.exp) .. ')';
+    elseif value.node == NodeType.INSTANTIATION_NODE  then
+        return value.id .. ':' .. 'new(' .. value.indexOfMatch .. ',' .. generateExplist(value.args) .. ')';
     end
     return code;
 end
@@ -373,9 +390,10 @@ generateExp = function(exp)
         if exp.op then
             code = code .. exp.op.binop.value .. generateExp(exp.op.term);
         end
-    end
-    if exp.node == NodeType.UNEXP_NODE then
+    elseif exp.node == NodeType.UNEXP_NODE then
         code = code .. exp.unop.value .. ' ' .. generateExp(exp.exp);
+    elseif exp.node == NodeType.LAMBDA_FUNC_NODE then
+        return generateLambdaFunc(exp.body);
     end
     return code;
 end
@@ -404,6 +422,9 @@ end
 
 generateFunctioncall = function(functioncall)
     local code = '';
+    if functioncall.isThis then
+        code = currentThisIndex;
+    end
     code = code .. generatePrefix(functioncall.prefix);
     code = code .. generateSuffix(functioncall.suffix);
     code = code .. generateCall(functioncall.call);
@@ -440,12 +461,102 @@ local function generateParlist(parlist)
     return code;
 end
 
-local function generateFuncbody(funcbody)
+generateFuncbody = function (funcbody)
     local code = '(';
     if funcbody.parlist.namelist then
         code = code .. generateParlist(funcbody.parlist);
     end
     code = code .. ')\n' .. generateBlock(funcbody.block) .. 'end';
+    return code;
+end
+
+local function generateLogicBlock(block, memberOf)
+    local localCode = '';
+    loadDependency('utils', true);
+    loadDependency('linkedlist');
+    loadDependency('logic', true);
+    --BODY
+    local bodyCode = '';
+    local funcList = '';
+    is_block_unique = block.is_unique;
+    bodyCode = bodyCode .. tablesToLogicLists(block.args, block.id);
+    for index, func in ipairs(block.funcs) do
+        local header, footer = handleLogicArgs(block.args, func.args);
+        local func_id = block.id .. '_' .. index;
+        funcList = funcList .. func_id .. ',';
+        bodyCode = bodyCode .. writeFunction(true, (func_id), utils.extractField(block.args, 'id'),
+            'local scID = _dep_logic.newScopeId()\n' 
+            .. header .. handleLogicStats(func.stats, func.args) .. footer
+        );
+    end
+    --YIELDING THE RESULTS
+    if not is_block_unique then
+        bodyCode = 'local localDepth = _Logic_stack_depth;\n' .. bodyCode;
+    end
+    bodyCode = '_Logic_stack_depth = _Logic_stack_depth + 1;\n' .. bodyCode;
+
+    if is_block_unique then
+        bodyCode = bodyCode .. 'local _logic_ret_val = '
+        for index, func in ipairs(block.funcs) do
+            bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ' or ';
+        end
+            bodyCode = bodyCode .. 'nil;\n';
+            bodyCode = bodyCode .. '_Logic_stack_depth = _Logic_stack_depth - 1;\n'
+            bodyCode = bodyCode .. 'if (not _logic_ret_val) or #_logic_ret_val == 0 then return nil end;\n'
+            bodyCode = bodyCode .. 'if _Logic_stack_depth == 0 then _dep_logic.listOfListsToArray(_logic_ret_val) end\n'
+            bodyCode = bodyCode .. 'return _logic_ret_val;\n';
+        else
+            bodyCode = bodyCode .. 'local _logic_run = coroutine.create(_dep_logic.run);\n';
+            bodyCode = bodyCode .. 'while coroutine.status(_logic_run) ~= "dead" do\n';
+            bodyCode = bodyCode .. 'local _, temp = coroutine.resume(_logic_run, {' .. funcList .. '}, {' .. utils.listOfIdsToCommaString(block.args)  .. '});\n';
+            bodyCode = bodyCode .. 'if localDepth == 1 then _dep_logic.listOfListsToArray(temp) _Logic_stack_depth = 0 end\n'
+            bodyCode = bodyCode .. 'if temp then coroutine.yield(temp); end;\n'
+            bodyCode = bodyCode .. 'if localDepth == 1 then _Logic_stack_depth = 1 end\n';
+            bodyCode = bodyCode .. 'end\n';
+    end
+
+    --SIGNATURE
+    localCode = localCode .. writeFunction(false, block.id, utils.extractField(block.args, 'id'), bodyCode, memberOf);
+    if block.isLocal then
+        localCode = 'local ' .. localCode;
+    end
+
+    return localCode;
+end
+
+local function generateClassStats(classId, stats)
+    local code = '';
+    for index, stat in ipairs(stats) do
+        if stat.node == NodeType.MEMBER_FUNCTION_NODE then
+                code = code .. 'function ' .. classId .. ':' .. stat.id .. generateFuncbody(stat.body) .. '\n';
+        elseif stat.node == NodeType.CONSTRUCTOR_NODE then
+            isConstructor = true;
+            code = code .. classId ..  '.constructor[#' .. classId .. '.constructor+1] = ' .. generateLambdaFunc(stat.body) .. '\n';
+            isConstructor = false;
+        elseif stat.node == NodeType.LOGIC_BLOCK_NODE then
+            if stat.access == 'private' then
+                stat.isLocal = true;
+                code = code .. generateLogicBlock(stat);
+            elseif stat.access == 'public' or stat.access == 'protected' then
+                stat.isLocal = false;
+                code = code .. generateLogicBlock(stat, classId);
+            end
+        elseif stat.node == NodeType.CLASS_FIELD_DELCARATION_NODE then
+            code = code .. generateNamelist(stat.left, classId);
+            code = code .. ' = ';
+            if stat.right then
+                code = code .. generateExplist(stat.right);
+                if #stat.right < #stat.left then code = code .. ',' end
+            end
+            local start = #(stat.right or {}) + 1;
+            for i=start, #stat.left, 1 do
+                code = code .. 'nil';
+                if i < #stat.left then code = code .. ',' end;
+            end
+            
+            code = code .. ';\n';
+        end
+    end
     return code;
 end
 
@@ -531,49 +642,34 @@ function Generator.generate(ast)
     end
 
     statRouter[NodeType.LOGIC_BLOCK_NODE] = function (block)
-        local localCode = '';
+        return generateLogicBlock(block);
+    end
+
+    statRouter[NodeType.CLASS_DECLARATION_NODE] = function (classDeclaration)
         loadDependency('utils', true);
-        loadDependency('linkedlist');
-        loadDependency('logic', true);
-        --BODY
-        local bodyCode = '';
-        local funcList = '';
-        is_block_unique = block.is_unique;
-        bodyCode = bodyCode .. tablesToLogicLists(block.args, block.id);
-        for index, func in ipairs(block.funcs) do
-            local header, footer = handleLogicArgs(block.args, func.args);
-            local func_id = block.id .. '_' .. index;
-            funcList = funcList .. func_id .. ',';
-            bodyCode = bodyCode .. writeFunction(true, (func_id), utils.extractField(block.args, 'id'),
-                'local scID = _dep_logic.newScopeId()\n' 
-                .. header .. handleLogicStats(func.stats, func.args) .. footer
-            );
-        end
-        --YIELDING THE RESULTS
-        bodyCode = '_Logic_stack_depth = _Logic_stack_depth + 1;\n' .. bodyCode;
-
-        if is_block_unique then
-            bodyCode = bodyCode .. 'local _logic_ret_val = '
-            for index, func in ipairs(block.funcs) do
-                bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ' or ';
-            end
-            bodyCode = bodyCode .. 'nil;\n';
-            bodyCode = bodyCode .. '_Logic_stack_depth = _Logic_stack_depth - 1;\n'
-            bodyCode = bodyCode .. 'if (not _logic_ret_val) or #_logic_ret_val == 0 then return nil end;\n'
-            bodyCode = bodyCode .. 'return _logic_ret_val;\n';
+        local oldThisIndex = currentThisIndex;
+        currentThisIndex = 'self.';
+        local code = classDeclaration.id .. ' = ';
+        if classDeclaration.baseClassId then
+            code = code .. classDeclaration.baseClassId .. ':new()\n';
         else
-            bodyCode = bodyCode .. 'local _logic_run = coroutine.create(_dep_logic.run);\n';
-            bodyCode = bodyCode .. 'while coroutine.status(_logic_run) ~= "dead" do\n';
-            bodyCode = bodyCode .. 'local _, temp = coroutine.resume(_logic_run, {' .. funcList .. '}, {' .. utils.listOfIdsToCommaString(block.args)  .. '});\n';
-            bodyCode = bodyCode .. 'if temp then coroutine.yield(temp); end;\n'
-            bodyCode = bodyCode .. 'end\n';
-            bodyCode = bodyCode .. '_Logic_stack_depth = _Logic_stack_depth - 1;\n'
+            code = code .. '{};\n';
         end
+        code = code .. 'do\n';
+        code = code .. classDeclaration.id .. '.' .. 'constructor = {};\n'
+        code = code .. 'function ' .. classDeclaration.id .. ':new(constructor, ...)\n'
+        code = code .. 'local _class_obj = _dep_utils.deepCopy(' .. classDeclaration.id .. ');\n';
+        code = code .. 'setmetatable(_class_obj, self)\n';
+        code = code .. 'self.__index = self\n';
+        code = code .. '_class_obj.constructor[constructor](_class_obj, ...);';
+        code = code .. '_class_obj.constructor = nil;\n';
+        code = code ..  'return _class_obj\n';
+        code = code .. 'end;\n';
+        code = code .. generateClassStats(classDeclaration.id, classDeclaration.stats);
+        code = code .. 'end\n'
 
-        --SIGNATURE
-        localCode = localCode .. writeFunction(false, block.id, utils.extractField(block.args, 'id'), bodyCode);
-
-        return localCode;
+        currentThisIndex = oldThisIndex;
+        return code;
     end
 
     for index, stat in ipairs(ast.stats) do
@@ -583,7 +679,7 @@ function Generator.generate(ast)
         end
     end
     MainOutputFile:write(Code);
-    --os.execute('start cmd /c "lua output/main.ela && pause"')
+    --os.execute('start cmd /c "lua output/main.lua && pause"')
 end
 
 return Generator;

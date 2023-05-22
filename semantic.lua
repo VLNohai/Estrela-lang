@@ -85,16 +85,16 @@ local function recursivePolish(exp)
         stack:pop();
         return;
     elseif exp.exp.type == 'var' then
-        exp.exp = exp.exp.value;
-        if Globals[exp.exp.id] then
-            exp.exp.type = Globals[exp.exp.id].type;
+        --exp.exp = exp.exp.value;
+        if Globals[exp.exp.value.id] then
+            exp.exp.value.type = Globals[exp.exp.value.id].type;
         else
-            exp.exp.type = 'nil';
+            exp.exp.value.type = 'nil';
         end
     elseif exp.exp.type == 'functioncall' then
-        exp.exp = exp.exp.value;
-        exp.exp.type = validateCall(exp.exp, Globals[exp.exp.prefix].args);
-        print('function type became ' .. exp.exp.type);
+        --exp.exp = exp.exp.value;
+        exp.exp.value.type = validateCall(exp.exp.value, Globals[exp.exp.value.prefix].args);
+        print('function type became ' .. exp.exp.value.type);
     end
     polish[#polish+1] = exp.exp.type;
     if exp.op then
@@ -267,13 +267,14 @@ end
 
 validateCall = function(call_stat, declarations_list)
     local typeList = {};
-    excludeExplicitTypes(call_stat.call.args);
-    for key, arg in ipairs(call_stat.call.args) do
+    excludeExplicitTypes(call_stat.args);
+    for key, arg in ipairs(call_stat.args) do
         local type = resolveType(arg);
         typeList[#typeList+1] = type;
     end
     for key, decl in ipairs(declarations_list) do
         if equivalentArgs(decl, typeList) then
+            call_stat.indexOfMatch = key;
             call_stat.traversed = true;
             return decl.return_type or 'any';
         end
@@ -311,23 +312,24 @@ local function traverse(currentNode)
         if type(value) == 'table' then
 
             --ASSIGNMENT_NODE
-            if value.node == NodeType.ASSIGNMENT_NODE then
-                excludeExplicitTypes(value.right);
-                checkAssignmentNode(currentNode, value);
-            end
+            --if value.node == NodeType.ASSIGNMENT_NODE then
+                --excludeExplicitTypes(value.right);
+                --checkAssignmentNode(currentNode, value);
+            --end
+
             if value.node == NodeType.CLASS_DECLARATION_NODE then
                 declareClass(value);
             end
 
             --FUNCTION_DECLARATION_NODE
-            if value.node == NodeType.FUNCTION_DECLARATION_NODE then
-                declareFunction(value);
-            end
+            --if value.node == NodeType.FUNCTION_DECLARATION_NODE then
+                --declareFunction(value);
+            --end
 
             --FUNCTION_CALL_NODE
             if value.node == NodeType.FUNCTION_CALL_NODE then
                 if not value.traversed then
-                    validateCall(value, Globals[value.prefix].args);
+                    --validateCall(value, Globals[value.prefix].args);
                 end
             end
 
@@ -335,13 +337,14 @@ local function traverse(currentNode)
             if value.node == NodeType.LOCAL_DECLARATION_NODE then
                 
             end
+
             if value.node == NodeType.LOCAL_FUNCTION_DECLARATION_NODE then
                 
             end
 
             --CLASSES
             if value.node == NodeType.INSTANTIATION_NODE then
-                validateCall({call = value}, declaredTypes[value.type].constructors);
+                validateCall(value, declaredTypes[value.type].constructors);
             end
             traverse(value);
         end

@@ -162,4 +162,40 @@ function logic.atom(arg, bindings)
    return not(logic.is_list(arg, bindings));
 end
 
+function logic.listToArray(current)
+   local array = {}
+   if not current then return end
+   while current.head do
+       if type(current.head) == "table" and current.head.head then
+           array[#array+1] = logic.listToArray(current.head);
+       else
+           array[#array+1] = current.head;
+       end
+       current = current.tail
+   end
+
+   return array
+end
+
+function logic.listOfListsToArray(lists)
+   if not lists then return end
+   for i = 1, #lists, 1 do
+      if type(lists[i]) == "table" then
+         lists[i] = logic.listToArray(lists[i]);
+      end
+   end
+   return lists;
+end
+
+function logic.stackDepth()
+   local depth = 0
+    local co = coroutine.running()
+
+    while co do
+        depth = depth + 1
+        co = debug.getinfo(co, {func = true}).func
+    end
+    return depth - 1;
+end
+
 return logic;
