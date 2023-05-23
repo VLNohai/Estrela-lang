@@ -388,7 +388,7 @@ generateExp = function(exp)
     if exp.node == NodeType.EVALUABLE_NODE then
         code = code .. generateValue(exp.exp);
         if exp.op then
-            code = code .. exp.op.binop.value .. generateExp(exp.op.term);
+            code = code .. ' ' .. exp.op.binop.value .. ' ' .. generateExp(exp.op.term);
         end
     elseif exp.node == NodeType.UNEXP_NODE then
         code = code .. exp.unop.value .. ' ' .. generateExp(exp.exp);
@@ -605,7 +605,7 @@ function Generator.generate(ast)
     end
 
     statRouter[NodeType.LOCAL_FUNCTION_DECLARATION_NODE] = function (funcDecStat)
-        return 'function ' .. funcDecStat.id .. generateFuncbody(funcDecStat.body);
+        return 'local function ' .. funcDecStat.id .. generateFuncbody(funcDecStat.body);
     end
 
     statRouter[NodeType.FOR_IN_LOOP_NODE] = function (forStat)

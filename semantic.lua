@@ -36,6 +36,18 @@ local function addNewError(message)
     errors[#errors+1] = {message = message};
 end
 
+local function fromNamelistToTypelist(parlist)
+    local rez = {};
+    for index, value in ipairs(parlist) do
+        if value.type then
+            rez[#rez+1] = value.type;
+        else
+            rez[#rez+1] = 'any';
+        end
+    end
+    return rez;
+end
+
 local function operationType(termOneType, op, termTwoType)
     if termOneType == 'any' or termTwoType == 'any' then
         return 'any';
@@ -236,18 +248,36 @@ local function declareClass(classDecNode)
                 foundCst = index;
             end
         end
-        if not foundCst then addNewError("can't resolve constructor for base class " .. classDecNode.baseClassId .. ' of ' .. classDecNode.id) end;
+        if not foundCst then addNewError("Cannot resolve constructor for base class " .. classDecNode.baseClassId .. ' of ' .. classDecNode.id) end;
         classDecNode.IndexOfBaseConstructor = foundCst;
     end
-    declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, abstactMethods = {}};
+    declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, abstractMethods = {}, abstractCount = 0};
+    local abstractsImplemented = {};
+    local abstractsImplementedCount = 0;
     for index, stat in ipairs(classDecNode.stats)  do
         if stat.node == NodeType.CONSTRUCTOR_NODE then
             addConstructor(classDecNode.id, stat);
         elseif stat.node == NodeType.ABSTRACT_METHOD_NODE then
-            local abstracts = declaredTypes[classDecNode.id].abstactMethods;
-            abstracts[#abstracts+1] = {id = stat.id, args = {}};
+            local abstracts = declaredTypes[classDecNode.id].abstractMethods;
+            abstracts[stat.id] = stat.params;
+            declaredTypes[classDecNode.id].abstractCount = declaredTypes[classDecNode.id].abstractCount + 1;
             classDecNode.isAbstract = true;
+        elseif stat.node == NodeType.MEMBER_FUNCTION_NODE then
+            if classDecNode.baseClassId then
+                if declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id] and not abstractsImplemented[stat.id] then
+                    if equivalentArgs(
+                        fromNamelistToTypelist(declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id].namelist), 
+                        fromNamelistToTypelist(stat.body.parlist.namelist or {})
+                    ) then
+                        abstractsImplemented[stat.id] = true;
+                        abstractsImplementedCount = abstractsImplementedCount + 1;
+                    end
+                end
+            end
         end
+    end
+    if classDecNode.baseClassId and abstractsImplementedCount ~= declaredTypes[classDecNode.baseClassId].abstractCount then
+        addNewError('Not all abstract methods of base class ' .. classDecNode.baseClassId .. ' were implemented');
     end
 end
 
@@ -358,6 +388,8 @@ local function traverse(currentNode)
 
             --CLASSES
             if value.node == NodeType.INSTANTIATION_NODE then
+                if not declaredTypes[value.id] then addNewError('No declaration found for type ' .. value.id) return end
+                if #declaredTypes[value.id].abstractMethods > 0 then addNewError('Cannot instantiate abstract class ' .. value.id) end
                 validateCall(value, declaredTypes[value.type].constructors);
             end
             traverse(value);

@@ -10,7 +10,7 @@ Path = 'E:/estrela rep/estrela/extra/example.ela';
 Lexems = Lexer.lex(Path);
 if Lexems then
     AST = Parser.parse(Lexems);
-    if (Semnatic.check(AST)) then
+    if AST and Semnatic.check(AST) then
         Generator.generate(AST);
     end
 end

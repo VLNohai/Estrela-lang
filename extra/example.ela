@@ -1,27 +1,12 @@
-class Person as
-    cnp, name;
-    constructor(cnp, name)
-        this.cnp = cnp;
-        this.name = name;
-    end
-    constructor()
-        this.cnp = -1;
-        this.name = "John Doe";
-    end
-    abstract f();
+class OtherClass as
+    constructor() end;
+    abstract meme(x @string, y);
 end
 
-class Studenta : Person(cnp, name) as
-    cuteness;
-    constructor(name, cnp, cuteness)
-        this.cuteness = cuteness;
-    end
-    constructor(name)
-        this.name = name;
-        this.cuteness = 5;
-        this.cnp = -1;
-    end
+class MyClass : OtherClass() as
+    constructor(x, y) end;
+    meme(x, y) end;
 end
 
-local a = new Studenta("maria");
-_dep_utils.dump_print(a);
+local a @MyClass = new MyClass(1, 2);
+local b = new OtherClass();

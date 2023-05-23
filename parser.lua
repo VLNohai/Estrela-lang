@@ -500,9 +500,11 @@ function NODE.CLASSSTAT()
     end
     INDEX = indexCpy;
 
-    local matchedArgs = {val = nil};
-    if MATCH(TokenType.ABSTRACT_KEYWORD) and SET(matchedArgs, MATCH(TokenType.IDENTIFIER, NODE.ARGS)) then
-        return { node = NodeType.ABSTRACT_METHOD_NODE, args = matchedArgs.val[2], id = matchedArgs.val[1].value; }
+    local matchedId = {val = nil};
+    local matchedParams = {val = nil};
+    if MATCH(TokenType.ABSTRACT_KEYWORD) and SET(matchedId, MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK)) and
+    SET(matchedParams, OPTIONAL(INDEX, NODE.PARLIST)) and MATCH(TokenType.RIGHT_PARAN_MARK) then
+        return { node = NodeType.ABSTRACT_METHOD_NODE, params = matchedParams.val, id = matchedId.val[1].value; }
     end
     INDEX = indexCpy;
 
