@@ -220,7 +220,8 @@ Tokens.NodeType = {
     NAME_ASSIGNMENT_NODE = 57,
     FIELD_LIST_NODE = 58,
     EXP_WRAPPER_NODE = 59,
-    ABSTRACT_METHOD_NODE = 60
+    ABSTRACT_METHOD_NODE = 60,
+    FUNC_BODY_NODE = 61
 }
 
 return Tokens;

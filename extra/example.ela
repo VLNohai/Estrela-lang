@@ -1,12 +1,26 @@
-class OtherClass as
-    constructor() end;
-    abstract meme(x @string, y);
+local array @string = 'first';
+
+class MyClass as 
+    array @{{number}} = {{1}, {2}, {3}};
+    x @number = 5;
+    constructor() 
+        local array = 1;
+        array = 'second';
+        print('in constructor ' .. array);
+    end;
+    logic test(a, rez)
+    (a, rez) 
+        rez -> a + 1;
+    end
+    (a, rez) 
+            rez -> a + 2;
+        end
+    end
 end
 
-class MyClass : OtherClass() as
-    constructor(x, y) end;
-    meme(x, y) end;
-end
-
-local a @MyClass = new MyClass(1, 2);
-local b = new OtherClass();
+local a @MyClass = new MyClass();
+local co = coroutine.create(a.test);
+repeat
+local _, rez = coroutine.resume(co, {1, 2, 3});
+_dep_utils.dump_print(rez);
+until not rez;

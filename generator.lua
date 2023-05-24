@@ -297,19 +297,20 @@ local function generatePrefix(var)
     if type(var.prefix) == "string" then
         code = code .. var.prefix;
     else
-        code = code .. '(' .. generateExp(var.exp)  .. ')';
+        if var.exp then
+            code = code .. '(' .. generateExp(var.exp)  .. ')'; 
+        end
     end
      return code;
 end
 
 local function generateVar(var)
     local code = '';
+    if var.isThis then
+        code = currentThisIndex .. code;
+    end
     if var.id then
         code = code .. var.id;
-        if var.isThis then
-            code = currentThisIndex .. code;
-        end
-        --typecheck
     else
         code = code .. generatePrefix(var);
         code = code .. generateSuffix(var.suffix);
@@ -340,8 +341,8 @@ end
 
 local function generateTableConst(tableConst)
     local code = '{';
-    if tableConst.fieldlist.fields then
-        code =  code .. generateFieldList(tableConst.fieldlist.fields);
+    if tableConst.fieldlist then
+        code =  code .. generateFieldList(tableConst.fieldlist);
     end
     code = code .. '}';
     return code;
@@ -357,18 +358,18 @@ end
 local generateFunctioncall;
 local function generateValue(value)
     local code = '';
-    if value.type == 'nil' then
-        return 'nil';
+    if value.valType == 'var' then
+        return generateVar(value.value);
+    elseif value.valType == 'functioncall' then
+        return generateFunctioncall(value.value);
     elseif value.type == 'boolean' or 
            value.type == 'number'
     then
         return value.value;
+    elseif value.type == 'nil' then
+            return 'nil';
     elseif value.type == 'string' then
         return "'" .. value.value .. "'";
-    elseif  value.type == 'var' then
-        return generateVar(value.value);
-    elseif value.type == 'functioncall' then
-        return generateFunctioncall(value.value);
     elseif value.type == 'triplePoint' then
         return '...';
     elseif value.type == 'table' then
@@ -517,9 +518,6 @@ local function generateLogicBlock(block, memberOf)
 
     --SIGNATURE
     localCode = localCode .. writeFunction(false, block.id, utils.extractField(block.args, 'id'), bodyCode, memberOf);
-    if block.isLocal then
-        localCode = 'local ' .. localCode;
-    end
 
     return localCode;
 end
@@ -566,13 +564,8 @@ local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
             code = code .. generateBlock(stat.body.block); 
             code = code .. 'end\n';
         elseif stat.node == NodeType.LOGIC_BLOCK_NODE then
-            if stat.access == 'private' then
-                stat.isLocal = true;
-                code = code .. generateLogicBlock(stat);
-            elseif stat.access == 'public' or stat.access == 'protected' then
-                stat.isLocal = false;
-                code = code .. generateLogicBlock(stat, classId);
-            end
+            stat.isLocal = false;
+            code = code .. generateLogicBlock(stat, classId);
         elseif stat.node == NodeType.CLASS_FIELD_DELCARATION_NODE then
             code = code .. generateNamelist(stat.left, classId);
             code = code .. ' = ';
