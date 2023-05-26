@@ -389,18 +389,11 @@ function NODE.STAT()
     end
     INDEX = indexCpy;
 
-    --[[
-    if SET(matchedValues, MATCH(TokenType.LOCAL_KEYWORD, NODE.ATTNAMELIST) and OPTIONAL(INDEX, TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
-        return true;
-    end
-    INDEX = indexCpy;
-    ]]
-
     local className = {val = nil};
     local baseClass = {val = nil};
     local classBody = {val = nil};
     if SET(className, MATCH(TokenType.CLASS_KEYWORD, TokenType.IDENTIFIER)) and 
-    SET(baseClass, OPTIONAL(INDEX, TokenType.COLON_OPERATOR, TokenType.IDENTIFIER, NODE.ARGS)) and
+    SET(baseClass, OPTIONAL(INDEX, TokenType.COLON_OPERATOR, TokenType.IDENTIFIER, NODE.CONSTRUCTORARGS)) and
     SET(classBody, MATCH(TokenType.AS_KEYWORD, NODE.CLASSBODY)) then
         local baseClassId = nil;
         local baseClassArgs = nil;
@@ -429,6 +422,20 @@ function NODE.STAT()
             is_unique = true;
         end
         return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val, isLocal = isLocal};
+    end
+    INDEX = indexCpy;
+
+    return false;
+end
+
+function NODE.CONSTRUCTORARGS()
+    local indexCpy = INDEX;
+
+    local matchedNamelist = {val = nil};
+    if MATCH(TokenType.LEFT_PARAN_MARK) and 
+    SET(matchedNamelist, OPTIONAL(INDEX, NODE.NAMELIST)) 
+    and MATCH(TokenType.RIGHT_PARAN_MARK) then
+        return matchedNamelist.val;
     end
     INDEX = indexCpy;
 
@@ -775,16 +782,8 @@ function NODE.NAME()
     if SET(matchedId, MATCH(TokenType.IDENTIFIER)) and 
     SET(matchedType, OPTIONAL(INDEX, TokenType.AT_OPERATOR, NODE.TYPE))  then
         local varType = nil;
-        if type(matchedType.val[2]) == "string" then
-            varType = matchedType.val[2];
-        elseif type(matchedType.val[2]) == "table" then
-            local depth = 0;
-            local currentType = matchedType.val[2];
-            while type(currentType) == "table" do
-               depth = depth + 1;
-               currentType = currentType[1];
-            end
-            varType = currentType .. '|' .. depth;
+        if matchedType.val then
+            varType = utils.fromTypeNodeToString(matchedType.val[2]);
         end
         return {node = NodeType.NAME_NODE, id = matchedId.val.value, type = varType};
     end
@@ -1052,16 +1051,11 @@ function NODE.FUNCBODY()
     local matchedType = {val = nil};
     local matchedBlock = {val = nil};
     if MATCH(TokenType.LEFT_PARAN_MARK) and SET(matchedParlist, OPTIONAL(INDEX, NODE.PARLIST)) and MATCH(TokenType.RIGHT_PARAN_MARK) and 
-            utils.makeTrue(
-                SET(matchedType, MATCH(TokenType.ARROW_OPERATOR, TokenType.IDENTIFIER)) or
-                SET(matchedType, MATCH(TokenType.ARROW_OPERATOR, TokenType.FUNCTION_KEYWORD)) or
-                SET(matchedType, MATCH(TokenType.ARROW_OPERATOR, TokenType.ANY_KEYWORD))
-            )
-        and SET(matchedBlock, MATCH(NODE.BLOCK)) and MATCH(TokenType.END_KEYWORD) then
-
+    SET(matchedType, OPTIONAL(INDEX, TokenType.ARROW_OPERATOR, NODE.TYPE)) and
+    SET(matchedBlock, MATCH(NODE.BLOCK)) and MATCH(TokenType.END_KEYWORD) then
         local type = nil;
         if matchedType.val then
-            type = matchedType.val[2].value;
+            type = utils.fromTypeNodeToString(matchedType.val[2]);
         end
         return {parlist = matchedParlist.val, type = type, block = matchedBlock.val, node = NodeType.FUNC_BODY_NODE};
     end

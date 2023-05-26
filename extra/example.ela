@@ -1,26 +1,27 @@
-local array @string = 'first';
-
-class MyClass as 
-    array @{{number}} = {{1}, {2}, {3}};
-    x @number = 5;
-    constructor() 
-        local array = 1;
-        array = 'second';
-        print('in constructor ' .. array);
+class BaseClass as
+    a @string = '';
+    constructor(a @string, b @number) 
+       this. a = a;
     end;
-    logic test(a, rez)
-    (a, rez) 
-        rez -> a + 1;
-    end
-    (a, rez) 
-            rez -> a + 2;
-        end
+end
+
+class MyClass : BaseClass(a @string, b @number) as
+    a @string = '';
+    constructor(x)
+        this.a = a;
     end
 end
 
-local a @MyClass = new MyClass();
-local co = coroutine.create(a.test);
-repeat
-local _, rez = coroutine.resume(co, {1, 2, 3});
-_dep_utils.dump_print(rez);
-until not rez;
+local a @MyClass = new MyClass('wow');
+
+local function test(b) -> string
+    local a @{{string}} = {{'one'}, {'two'}};
+    return a[2][1];
+end
+
+local function test(b) -> string
+    local a @{{string}} = {{'one'}, {'two'}};
+    return a[2][1];
+end
+
+_dep_utils.dump_print(test());

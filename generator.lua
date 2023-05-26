@@ -525,13 +525,13 @@ end
 local function generateInstantiationFunc(classDeclaration)
     local code = '';
     code = code .. 'function ' .. classDeclaration.id .. ':new(constructor, ...)\n'
-    code = code .. 'local _class_obj;\n';
-    code = code .. '_class_obj = _dep_utils.deepCopy(' .. classDeclaration.id .. ', _class_obj);\n';
-    code = code .. 'setmetatable(_class_obj, self)\n';
+    code = code .. 'local new;\n';
+    code = code .. 'new = _dep_utils.deepCopy(' .. classDeclaration.id .. ', new);\n';
+    code = code .. 'setmetatable(new, self)\n';
     code = code .. 'self.__index = self\n';
-    code = code .. '_class_obj.constructor[constructor](_class_obj, ...);';
-    code = code .. '_class_obj.constructor = nil;\n';
-    code = code ..  'return _class_obj\n';
+    code = code .. 'new.constructor[constructor](new, ...);';
+    code = code .. 'new.constructor = nil;\n';
+    code = code ..  'return new\n';
     code = code .. 'end;\n';
     return code;
 end
@@ -541,7 +541,7 @@ local function inheritInConstructor(baseId, baseArgs, ihtCstIndex)
     code = code .. 'self = _dep_utils.deepCopy(' .. baseId .. ', self)\n';
     code = code .. baseId .. '.constructor[' .. ihtCstIndex .. ']' .. '(self'; 
     if #baseArgs > 0 then
-        code = code .. ',' .. generateExplist(baseArgs);
+        code = code .. ',' .. generateNamelist(baseArgs);
     end
     code = code .. ')\n';
     return code;
@@ -559,9 +559,12 @@ local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
             end
             code = code .. ')\n';
             if baseId then
-                code = code .. inheritInConstructor(baseId, baseArgs, ihtCstIndex);
+                code = code .. 'local ' .. generateNamelist(baseArgs) .. ';\n';
             end
             code = code .. generateBlock(stat.body.block); 
+            if baseId then
+                code = code .. inheritInConstructor(baseId, baseArgs, ihtCstIndex);
+            end
             code = code .. 'end\n';
         elseif stat.node == NodeType.LOGIC_BLOCK_NODE then
             stat.isLocal = false;

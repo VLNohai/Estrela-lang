@@ -84,4 +84,20 @@ function utils.listOfIdsToCommaString(tb, defaults_to_own_name)
     return string;
 end
 
+function utils.fromTypeNodeToString(matchedType)
+    local varType = nil;
+    if type(matchedType) == "string" then
+        varType = matchedType;
+    elseif type(matchedType) == "table" then
+        local depth = 0;
+        local currentType = matchedType;
+        while type(currentType) == "table" do
+           depth = depth + 1;
+           currentType = currentType[1];
+        end
+        varType = currentType .. '|' .. depth;
+    end
+    return varType;
+end
+
 return utils;

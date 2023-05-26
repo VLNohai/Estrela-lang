@@ -57,25 +57,12 @@ local function resolveVarScopeType(varId, isThis)
         while traverseScope.father and (not traverseScope[varId]) do
             traverseScope = traverseScope.father;
         end
-        return (traverseScope[varId] or {}).type or 'any';
+        return (traverseScope[varId] or {}).type;
     end
 end
 
 local function addNewError(message)
     errors[#errors+1] = {message = message};
-end
-
-local function fromNamelistToTypelist(parlist)
-    local rez = {};
-    if not parlist then return {} end
-    for index, value in ipairs(parlist) do
-        if value.type then
-            rez[#rez+1] = value.type;
-        else
-            rez[#rez+1] = 'any';
-        end
-    end
-    return rez;
 end
 
 local function operationType(termOneType, op, termTwoType)
@@ -159,7 +146,7 @@ local function resolveIndexType(type, suffix)
         if type == 'any' then return 'any' end;
         type, depth = getTypeAndDepth(type);
         if depth == 0 then
-            if suff.node == NodeType.POINT_INDEX_NODE then
+            if suff.node == NodeType.POINT_INDEX_NODE or suff.node == NodeType.SELF_CALL_NODE then
                 if declaredTypes[type] then
                     lastId = suff.id;
                     lastType = type;
@@ -169,6 +156,13 @@ local function resolveIndexType(type, suffix)
                 else
                     addNewError('Cannot index type ' .. type);
                     type = 'any';
+                end
+                if suff.node == NodeType.SELF_CALL_NODE then
+                    if type == 'member_function' then
+                        type = declaredTypes[lastType].fields[lastId].returnType or 'any';
+                        lastId = '#';
+                        lastType = '#';
+                    end
                 end
             elseif suff.node == NodeType.CALL_NODE then
                 if type == 'member_function' then
@@ -204,7 +198,7 @@ local function resolveIndexType(type, suffix)
             end
         end
     end
-    return type, canBeNil;
+    return type;
 end
 
 local function resolveExpType(exp)
@@ -272,7 +266,7 @@ resolveVarType = function(var)
     if var.prefix and var.prefix.node == NodeType.VAR_NODE then
         type = resolveExpType(var.prefix.exp);
     else
-        type = resolveVarScopeType(var.id or var.prefix, var.isThis);
+        type = resolveVarScopeType(var.id or var.prefix, var.isThis) or 'any';
     end
     if var.suffix then
         local prefixType, depth = getTypeAndDepth(type);
@@ -314,12 +308,10 @@ local function validate_declared_type(var)
     return true;
 end
 
-local function validateFunctionDeclaration(funcNode, isConstructor)
-    local parameters = funcNode.body.parlist.namelist or {};
-    local isTriple = funcNode.body.parlist.isTriple;
+local function namelistToTypelist(namelist)
     local typesList = {};
     local parNames = {};
-    for index, parameter in ipairs(parameters) do
+    for index, parameter in ipairs(namelist) do
         local parType = parameter.type or 'any';
         if parNames[parameter.id] ~= nil then
             addNewError('Parameter names must be unique');
@@ -327,11 +319,17 @@ local function validateFunctionDeclaration(funcNode, isConstructor)
         parNames[parameter.id] = true;
         typesList[#typesList+1] = parType;
     end
+    return typesList;
+end
+
+local function validateFunctionDeclaration(funcNode, isConstructor)
+    local parameters = funcNode.body.parlist.namelist or {};
+    local isTriple = funcNode.body.parlist.isTriple;
+    local typesList = {};
+    local parNames = {};
+    typesList = namelistToTypelist(parameters);
     if isTriple then
         typesList[#typesList+1] = 'repeat';
-    end
-    if not isConstructor then
-        validate_declared_type(funcNode.body);
     end
     return typesList;
 end
@@ -341,7 +339,12 @@ local function addConstructor(classID, ctrNode)
        addNewError('constructors cannot have explicit return types');
        ctrNode.body.type = nil;
     end
-    local typesList = validateFunctionDeclaration(ctrNode, true);
+    local typesList = namelistToTypelist(ctrNode.body.parlist.namelist);
+    for index, var in ipairs(ctrNode.body.parlist.namelist) do
+        if declaredTypes[classID].inheritParams[var.id] then
+            addNewError('Base class parameters are injected in constructors implicitly, remove the explicit parameter with same name ' .. var.id);
+        end 
+    end
     local valid = true;
     for key, cst in ipairs(declaredTypes[classID].constructors) do
         if equivalentArgs(cst, typesList) then
@@ -359,18 +362,22 @@ local function declareClass(classDecNode)
         addNewError('found redeclaration of type ' .. classDecNode.id);
         return;
     end
+    declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, inheritParams = {}, abstractMethods = {}, abstractCount = 0};
     if classDecNode.baseClassId then
+        local baseClassTypeList = namelistToTypelist(classDecNode.baseClassArgs);
+        for index, var in ipairs(classDecNode.baseClassArgs) do
+            declaredTypes[classDecNode.id].inheritParams[var.id] = {type = var.type or 'any'};
+        end
         local baseCst = declaredTypes[classDecNode.baseClassId].constructors;
         local foundCst = nil;
         for index, cst in ipairs(baseCst) do
-            if equivalentArgs(cst, classDecNode.baseClassArgs) then
+            if equivalentArgs(cst, baseClassTypeList) then
                 foundCst = index;
             end
         end
         if not foundCst then addNewError("Cannot resolve constructor for base class " .. classDecNode.baseClassId .. ' of ' .. classDecNode.id) end;
         classDecNode.IndexOfBaseConstructor = foundCst;
     end
-    declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, abstractMethods = {}, abstractCount = 0};
     local abstractsImplemented = {};
     local abstractsImplementedCount = 0;
     for index, stat in ipairs(classDecNode.stats) do
@@ -386,8 +393,8 @@ local function declareClass(classDecNode)
             if classDecNode.baseClassId then
                 if declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id] and not abstractsImplemented[stat.id] then
                     if equivalentArgs(
-                        fromNamelistToTypelist(declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id].namelist), 
-                        fromNamelistToTypelist((stat.args or stat.body.parlist.namelist) or {})
+                        namelistToTypelist(declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id].namelist), 
+                        namelistToTypelist((stat.args or stat.body.parlist.namelist) or {})
                     ) then
                         abstractsImplemented[stat.id] = true;
                         abstractsImplementedCount = abstractsImplementedCount + 1;
@@ -418,14 +425,14 @@ end
 
 local function checkDeclarationNode(currentNode, child)
     for index, var in ipairs(child.left) do
-        --NEW DECLARED GLOBAL
+        --NEW DECLARED Local
         if not currentScope[var.id] then
             validate_declared_type(var);
             currentScope[var.id] = {type = var.type};
         else
             if not var.type then var.type = 'any' end;
             if var.type ~= currentScope[var.id].type then
-                addNewError('Redefinition of variable with different type');
+                addNewError('Redefinition in the same scope of variable ' .. var.id .. ' with different type ' .. '(was ' .. currentScope[var.id].type .. ', now is ' .. var.type .. ' )');
             end
         end
         local right = (child.right or {})[index];
@@ -517,20 +524,15 @@ local function traverse(currentNode)
                 declareClass(value);
             end
 
-            -- FUNCTION_DECLARATION_NODE
-            -- if value.node == NodeType.FUNCTION_DECLARATION_NODE then
-            --     declareFunction(value);
-            -- end
-
             --FUNCTION_CALL_NODE
             if value.node == NodeType.FUNCTION_CALL_NODE then
                 if not value.traversed then
-                    --validateCall(value, currentScope[value.prefix].args);
+                    utils.dump_print(value);
                 end
             end
 
             if value.node == NodeType.LOCAL_FUNCTION_DECLARATION_NODE then
-                
+                currentScope[value.id] = {type = 'function', returnType = value.body.type};
             end
 
             --CLASSES
@@ -542,13 +544,42 @@ local function traverse(currentNode)
 
             if value.node == NodeType.FUNC_BODY_NODE or value.node == NodeType.DO_BLOCK_NODE then
                 local nextScope = {};
+                if value.node == NodeType.FUNC_BODY_NODE then
+                    for index, var in ipairs(value.parlist.namelist) do
+                        nextScope[var.id] = {type = var.type or 'any'};
+                    end
+                end
                 nextScope.father = currentScope;
                 currentScope = nextScope; 
                 traverse(value);
+                if value.node == NodeType.FUNC_BODY_NODE then
+                    local expectedReturnType = value.type or 'any';
+                    if expectedReturnType ~= 'any' then
+                        if not value.block.retstat.expressions then
+                            addNewError('Function expected to return ' .. expectedReturnType ', returns nil instead');
+                        elseif #value.block.retstat.expressions > 1 then
+                            addNewError('You can return only one value on explicit typed function');
+                        else
+                            local actualReturnType = resolveExpType(value.block.retstat.expressions[1]);
+                            if actualReturnType ~= expectedReturnType then
+                                addNewError('Function expected to return ' .. expectedReturnType .. ', returns ' .. actualReturnType .. ' instead')
+                            end
+                        end
+                    end
+                end
                 currentScope = currentScope.father;
             elseif value.node == NodeType.CLASS_DECLARATION_NODE then
                 currentClass = value.id;
+                local nextScope = {};
+                if value.baseClassId then
+                    for index, var in ipairs(value.baseClassArgs) do
+                        nextScope[var.id] = {type = var.type or 'any'};
+                    end
+                end
+                nextScope.father = currentScope;
+                currentScope = nextScope;
                 traverse(value);
+                currentScope = currentScope.father;
                 currentClass = nil;
             else
                 traverse(value);
