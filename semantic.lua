@@ -57,7 +57,7 @@ local function resolveVarScopeType(varId, isThis)
         while traverseScope.father and (not traverseScope[varId]) do
             traverseScope = traverseScope.father;
         end
-        return (traverseScope[varId] or {}).type;
+        return (traverseScope[varId] or {}).type, (traverseScope[varId] or {}).returnType;
     end
 end
 
@@ -66,6 +66,9 @@ local function addNewError(message)
 end
 
 local function operationType(termOneType, op, termTwoType)
+    if op == TokenType.AS_KEYWORD then
+        return termTwoType;
+    end
     if termOneType == 'any' or termTwoType == 'any' then
         return 'any';
     end
@@ -100,7 +103,12 @@ local function level(token)
     then
         return 3;
     end
-    print('returned nil for some reason');
+    if
+    token == TokenType.AS_KEYWORD 
+    then
+        return 4;
+    end
+    print('operator' .. token .. 'not imlemented');
 end
 
 local validateCall;
@@ -138,7 +146,7 @@ local function recursivePolish(exp)
     end
 end
 
-local function resolveIndexType(type, suffix)
+local function resolveIndexType(type, suffix, prefixId)
     local lastId = '#';
     local lastType = '#';
     local depth;
@@ -162,6 +170,8 @@ local function resolveIndexType(type, suffix)
                         type = declaredTypes[lastType].fields[lastId].returnType or 'any';
                         lastId = '#';
                         lastType = '#';
+                    else
+                        type = 'any';
                     end
                 end
             elseif suff.node == NodeType.CALL_NODE then
@@ -169,7 +179,14 @@ local function resolveIndexType(type, suffix)
                     type = declaredTypes[lastType].fields[lastId].returnType or 'any';
                     lastId = '#';
                     lastType = '#';
-                elseif type == 'function' or type == 'any' then
+                elseif type == 'function' then
+                    if prefixId then
+                        local _, returnType = resolveVarScopeType(prefixId);
+                        type = returnType or 'any';
+                    else
+                        type = 'any';
+                    end
+                elseif type == 'any' then
                     type = 'any';
                 else
                     addNewError('Cannot call type ' .. type);
@@ -197,6 +214,7 @@ local function resolveIndexType(type, suffix)
                 end
             end
         end
+        prefixId = suff.id;
     end
     return type;
 end
@@ -270,10 +288,10 @@ resolveVarType = function(var)
     end
     if var.suffix then
         local prefixType, depth = getTypeAndDepth(type);
-        if type ~= 'table' and type ~= 'any' and (not declaredTypes[type]) and depth == 0 then
+        if type ~= 'table' and type ~= 'any' and (not declaredTypes[type]) and type ~= 'function' and depth == 0 then
             addNewError('illegal index of prefix of type ' .. type);
         else
-            type = resolveIndexType(type, var.suffix);
+            type = resolveIndexType(type, var.suffix, (var.id or var.prefix));
         end
     end
     return type;
@@ -339,8 +357,8 @@ local function addConstructor(classID, ctrNode)
        addNewError('constructors cannot have explicit return types');
        ctrNode.body.type = nil;
     end
-    local typesList = namelistToTypelist(ctrNode.body.parlist.namelist);
-    for index, var in ipairs(ctrNode.body.parlist.namelist) do
+    local typesList = namelistToTypelist(ctrNode.body.parlist.namelist or {});
+    for index, var in ipairs(ctrNode.body.parlist.namelist or {}) do
         if declaredTypes[classID].inheritParams[var.id] then
             addNewError('Base class parameters are injected in constructors implicitly, remove the explicit parameter with same name ' .. var.id);
         end 
@@ -524,15 +542,18 @@ local function traverse(currentNode)
                 declareClass(value);
             end
 
-            --FUNCTION_CALL_NODE
             if value.node == NodeType.FUNCTION_CALL_NODE then
                 if not value.traversed then
-                    utils.dump_print(value);
+                    --utils.dump_print(value);
                 end
             end
 
             if value.node == NodeType.LOCAL_FUNCTION_DECLARATION_NODE then
                 currentScope[value.id] = {type = 'function', returnType = value.body.type};
+            end
+
+            if value.node == NodeType.VAR_NODE or value.node == NodeType.NAME_NODE then
+                utils.dump_print(value.id);
             end
 
             --CLASSES
@@ -545,7 +566,7 @@ local function traverse(currentNode)
             if value.node == NodeType.FUNC_BODY_NODE or value.node == NodeType.DO_BLOCK_NODE then
                 local nextScope = {};
                 if value.node == NodeType.FUNC_BODY_NODE then
-                    for index, var in ipairs(value.parlist.namelist) do
+                    for index, var in ipairs(value.parlist.namelist or {}) do
                         nextScope[var.id] = {type = var.type or 'any'};
                     end
                 end
@@ -556,7 +577,7 @@ local function traverse(currentNode)
                     local expectedReturnType = value.type or 'any';
                     if expectedReturnType ~= 'any' then
                         if not value.block.retstat.expressions then
-                            addNewError('Function expected to return ' .. expectedReturnType ', returns nil instead');
+                            addNewError('Function expected to return ' .. expectedReturnType .. ', returns nil instead');
                         elseif #value.block.retstat.expressions > 1 then
                             addNewError('You can return only one value on explicit typed function');
                         else
@@ -582,7 +603,9 @@ local function traverse(currentNode)
                 currentScope = currentScope.father;
                 currentClass = nil;
             else
-                traverse(value);
+                if key ~= 'namelist' then
+                    traverse(value); 
+                end
             end
         end
     end

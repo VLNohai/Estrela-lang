@@ -10,6 +10,18 @@ INDEX = 1;
 
 MAX_INDEX = -1;
 
+local basicTypes = {
+    ['nil'] = true, 
+    ['boolean'] = true, 
+    ['number'] = true, 
+    ['string'] = true, 
+    ['table'] = true, 
+    ['function'] = true, 
+    ['userdata'] = true, 
+    ['thread'] = true,
+    ['any'] = true
+}
+
 function EQUALS(a, b)
     if a == b then
         INDEX = INDEX + 1;
@@ -1175,6 +1187,7 @@ function NODE.BINOP()
        SET(matchedOp, MATCH(TokenType.EQUALS_OPERATOR)) or
        SET(matchedOp, MATCH(TokenType.NOT_EQUALS_OPERATOR)) or 
        SET(matchedOp, MATCH(TokenType.AND_KEYWORD)) or 
+       SET(matchedOp, MATCH(TokenType.AS_KEYWORD)) or
        SET(matchedOp, MATCH(TokenType.OR_KEYWORD)) then
         return {node = NodeType.BINOP_NODE, symbol = matchedOp.val.tokenType, value = matchedOp.val.value};
     end
