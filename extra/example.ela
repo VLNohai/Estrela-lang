@@ -1,7 +1,5 @@
-class MyClass as
-    constructor(a, b, c) end;
+local a = requireELA('module');
+
+class a as
+
 end
-
-local mc @MyClass = new MyClass();
-MyClass = 3;
-

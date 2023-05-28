@@ -1,9 +1,10 @@
-Utils = require('utils');
-NodeType = require('tokens').NodeType;
-Generator = {};
-MainOutputFile = io.open("output/main.lua", 'w')
-Code = "--end of dependencies\n";
+local NodeType = require('tokens').NodeType;
+local utils = require('utils');
+local Generator = {};
+local OutputFile = nil;
+local Code = "--end of dependencies\n";
 local dependencies = {};
+local depsPath;
 
 -----------------------BLOCK---------------------
 
@@ -55,7 +56,7 @@ local function loadDependency(name, onMainFile)
         local src = io.open('prefabs/' .. name .. '.lua');
         if src then
             local content = src:read("*all");
-            local dest = io.open("output/deps/" .. name .. '.lua', 'wb');
+            local dest = io.open(depsPath .. '/' .. name .. '.lua', 'wb');
             if dest then
                 dest:write(content);
                 dest:close();  
@@ -380,6 +381,16 @@ local function generateValue(value)
         code =  value.id .. ':' .. 'new(' .. value.indexOfMatch
         if #value.args > 0 then code = code .. ',' .. generateExplist(value.args); end
         code = code .. ')';
+    elseif value.node == NodeType.CAST_NODE then
+        if not value.safety then
+            return generateExp(value.exp);
+        elseif value.safety == 'check' then
+            return '_dep_cast.cast(' .. generateExp(value.exp) .. ',"' .. value.castTo .. '")';
+        elseif value.safety == 'deepcopy' then
+            return '_dep_utils.deepcopy(' .. generateExp(value.exp) .. ');';
+        else
+            print('cast safety level not implemented');
+        end
     end
     return code;
 end
@@ -559,7 +570,10 @@ local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
             end
             code = code .. ')\n';
             if baseId then
-                code = code .. 'local ' .. generateNamelist(baseArgs) .. ';\n';
+                local baseArgs = generateNamelist(baseArgs);
+                if baseArgs ~= '' then
+                    code = code .. 'local ' .. generateNamelist(baseArgs) .. ';\n';
+                end
             end
             code = code .. generateBlock(stat.body.block); 
             if baseId then
@@ -588,11 +602,35 @@ local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
     return code;
 end
 
-function Generator.generate(ast)
+local function generateOverloadFunc(overload)
+    local code = 'function _Op_';
+    if overload.node == NodeType.BINARY_OPERATOR_OVERLOAD_NODE then
+        code = code .. overload.type1 .. '_' .. overload.op .. '_' .. overload.type2 .. '(';
+    end
+    code = code .. generateNamelist(overload.body.parlist.namelist) .. ')\n';
+    code = code .. generateBlock(overload.body.block) .. 'end\n';
+
+    return code;
+end
+
+function Generator.generate(ast, mainFilePath, filename)
+
+    --HANDLE FILES
+    local command = 'mkdir "' .. mainFilePath .. '/build' .. '" 2>nul'
+    local handle = io.popen(command)
+    if handle then
+        handle:close();
+    end
+    OutputFile = io.open(mainFilePath ..  '/build/' .. filename .. '.lua', 'w');
+
     local astfile = io.open('extra/ast.ast', 'w');
-    os.execute('mkdir "' .. 'output/deps' .. '" > nul 2>&1')
+    os.execute('mkdir "' .. mainFilePath ..  '/build/deps' .. '" > nul 2>&1')
+    depsPath = mainFilePath .. '/build/deps';
     if not astfile then return; end;
     astfile:write(utils.dump(ast));
+    --------------------------------
+
+
     statRouter = {};
 
     statRouter[NodeType.FUNCTION_DECLARATION_NODE] = function (funcDecStat)
@@ -673,13 +711,27 @@ function Generator.generate(ast)
         return generateLogicBlock(block);
     end
 
+    local overloadFunction = function (overload)
+        return generateOverloadFunc(overload);
+    end
+    statRouter[NodeType.BINARY_OPERATOR_OVERLOAD_NODE] = overloadFunction;
+    statRouter[NodeType.UNARY_OPERATOR_OVERLOAD_NODE] = overloadFunction;
+
     statRouter[NodeType.CLASS_DECLARATION_NODE] = function (classDeclaration)
         loadDependency('utils', true);
+        loadDependency('cast', true);
+        loadDependency('types');
         local oldThisIndex = currentThisIndex;
         currentThisIndex = 'self.';
         local code = classDeclaration.id .. ' = {}';
         code = code .. 'do\n';
-        code = code .. classDeclaration.id .. '.' .. 'constructor = {};\n'
+        code = code .. classDeclaration.id .. '.' .. 'constructor = {};\n';
+        
+        code = code .. classDeclaration.id .. '.public = {';
+        for key, _ in pairs(classDeclaration.fields) do
+            code = code .. '["' .. key .. '"] = true;';
+        end
+        code = code .. '};\n';
 
         if not classDeclaration.isAbstract then
             code = code .. generateInstantiationFunc(classDeclaration);
@@ -698,8 +750,10 @@ function Generator.generate(ast)
             Code = Code .. temp;
         end
     end
-    MainOutputFile:write(Code);
-    --os.execute('start cmd /c "lua output/main.lua && pause"')
+    if OutputFile then
+        OutputFile:write(Code); 
+    end
+    Code = "--end of dependencies\n";
 end
 
 return Generator;

@@ -63,8 +63,6 @@ Tokens.TokenType = {
     ARROW_OPERATOR = 55,
     AT_OPERATOR = 56,
     ANY_KEYWORD = 57,
-    STRONG_KEYWORK = 58,
-    WEAK_KEYWORD = 59,
     CONSTRUCTOR_KEYWORD = 60,
     CLASS_KEYWORD = 61,
     STATIC_KEYWORD = 62,
@@ -78,7 +76,9 @@ Tokens.TokenType = {
     NEW_KEYWORD = 70,
     CONCATENATION_OPERATOR = 71,
     LOGIC_KEYWORD = 72,
-    UNIQUE_KEYWORD = 73
+    UNIQUE_KEYWORD = 73,
+    OPERATOR_KEYWORD = 74,
+    UNARY_MINUS_OPERATOR = 75
 };
 
 Tokens.MapKeywords = {
@@ -105,8 +105,6 @@ Tokens.MapKeywords = {
     ['while'] = Tokens.TokenType.WHILE_KEYWORD,
     ['goto'] = Tokens.TokenType.GOTO_KEYWORD,
     ['any'] = Tokens.TokenType.ANY_KEYWORD,
-    ['weak'] = Tokens.TokenType.WEAK_KEYWORD,
-    ['strong'] = Tokens.TokenType.STRONG_KEYWORK,
     ['constructor'] = Tokens.TokenType.CONSTRUCTOR_KEYWORD,
     ['class'] = Tokens.TokenType.CLASS_KEYWORD,
     ['static'] = Tokens.TokenType.STATIC_KEYWORD,
@@ -118,7 +116,8 @@ Tokens.MapKeywords = {
     ['this'] = Tokens.TokenType.THIS_KEYWORD,
     ['new'] = Tokens.TokenType.NEW_KEYWORD,
     ['logic'] = Tokens.TokenType.LOGIC_KEYWORD,
-    ['unique'] = Tokens.TokenType.UNIQUE_KEYWORD
+    ['unique'] = Tokens.TokenType.UNIQUE_KEYWORD,
+    ['operator'] = Tokens.TokenType.OPERATOR_KEYWORD
 }
 
 Tokens.MapOperators = {
@@ -221,7 +220,10 @@ Tokens.NodeType = {
     FIELD_LIST_NODE = 58,
     EXP_WRAPPER_NODE = 59,
     ABSTRACT_METHOD_NODE = 60,
-    FUNC_BODY_NODE = 61
+    FUNC_BODY_NODE = 61,
+    CAST_NODE = 62,
+    BINARY_OPERATOR_OVERLOAD_NODE = 63,
+    UNARY_OPERATOR_OVERLOAD_NODE = 64
 }
 
 return Tokens;

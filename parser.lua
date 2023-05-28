@@ -250,7 +250,6 @@ end
 function NODE.CHUNK()
     local ast = MATCH(NODE.BLOCK);
     if ast and INDEX == #LEXEMS + 1 then
-        print('parsed succesfully');
         return ast;
     else
         print('syntax error!');
@@ -259,6 +258,7 @@ function NODE.CHUNK()
 end
 
 function NODE.BLOCK()
+    
     local indexCpy = INDEX;
     local stats = {value = nil};
     local retstat = {value = nil};
@@ -434,6 +434,29 @@ function NODE.STAT()
             is_unique = true;
         end
         return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val, isLocal = isLocal};
+    end
+    INDEX = indexCpy;
+
+    matchedValues = {val = nil};
+    if SET(matchedValues, MATCH(TokenType.OPERATOR_KEYWORD, NODE.BINOP, NODE.FUNCBODY)) then
+        if #(matchedValues.val[3].parlist.namelist or {}) == 2 then
+            return {node = NodeType.BINARY_OPERATOR_OVERLOAD_NODE, 
+                    op = matchedValues.val[2].symbol,
+                    body = matchedValues.val[3]
+                }
+        end
+    end
+    INDEX = indexCpy;
+
+    matchedValues = {val = nil};
+    if SET(matchedValues, MATCH(TokenType.OPERATOR_KEYWORD, NODE.UNOP, NODE.FUNCBODY)) then
+        if #(matchedValues.val[3].parlist.namelist or {}) == 1 then
+            print('unop');
+            return {node = NodeType.UNARY_OPERATOR_OVERLOAD_NODE, 
+                    op = matchedValues.val[2].symbol,
+                    body = matchedValues.val[3]
+                }
+        end
     end
     INDEX = indexCpy;
 
@@ -898,6 +921,11 @@ function NODE.VALUE()
     end
     INDEX = indexCpy;
 
+    if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.EXP, TokenType.AS_KEYWORD, TokenType.IDENTIFIER, TokenType.RIGHT_PARAN_MARK)) then
+        return {node = NodeType.CAST_NODE, exp = matchedValue.val[2], castTo = matchedValue.val[4].value}
+    end
+    INDEX = indexCpy;
+
     return false
 end
 
@@ -1186,8 +1214,7 @@ function NODE.BINOP()
        SET(matchedOp, MATCH(TokenType.MORE_OR_EQUAL_OPERATOR)) or 
        SET(matchedOp, MATCH(TokenType.EQUALS_OPERATOR)) or
        SET(matchedOp, MATCH(TokenType.NOT_EQUALS_OPERATOR)) or 
-       SET(matchedOp, MATCH(TokenType.AND_KEYWORD)) or 
-       SET(matchedOp, MATCH(TokenType.AS_KEYWORD)) or
+       SET(matchedOp, MATCH(TokenType.AND_KEYWORD)) or
        SET(matchedOp, MATCH(TokenType.OR_KEYWORD)) then
         return {node = NodeType.BINOP_NODE, symbol = matchedOp.val.tokenType, value = matchedOp.val.value};
     end
@@ -1204,7 +1231,10 @@ function NODE.UNOP()
     SET(matchedOp, MATCH(TokenType.NOT_KEYWORD)) or 
     SET(matchedOp, MATCH(TokenType.HASH_OPERATOR)) or 
     SET(matchedOp, MATCH(TokenType.TILDE_OPERATOR)) then
-        return {node = NodeType.UNOP_NODE, value = matchedOp.val.value};
+        if matchedOp.val.tokenType == TokenType.MINUS_OPERATOR then
+            matchedOp.val.tokenType = TokenType.UNARY_MINUS_OPERATOR
+        end
+        return {node = NodeType.UNOP_NODE, value = matchedOp.val.tokenType};
     end
     INDEX = indexCpy;
 

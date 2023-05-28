@@ -9,6 +9,7 @@ local operator = '+-/%^#=~<>.:*@?|'
 local marker = '(){}[];,';
 local whitespace = ' \n\t\r'
 local validEscapes = 'abfnrtvx"\'\\'
+local buffer = nil;
 
 local line = 1;
 local column = 1;
@@ -17,9 +18,23 @@ local inputFile = nil;
 local outputFile = nil;
 
 
-Current_index = 1;
-First_read = true;
-c = '';
+local Current_index = 1;
+local First_read = true;
+local c = '';
+
+local function reset()
+    buffer = nil;
+
+    line = 1;
+    column = 1;
+
+    inputFile = nil;
+    outputFile = nil;
+
+    Current_index = 1;
+    First_read = true;
+    c = '';
+end
 
 local function nextChar()
     if First_read or (buffer and Current_index > #buffer) then
@@ -41,6 +56,7 @@ local function nextChar()
 end
 
 function lexer.lex(path)
+    reset();
     local resultTokens = {}
     inputFile = open(path, "r")
     outputFile = open('extra/output.lex', "w")
@@ -254,7 +270,6 @@ function lexer.lex(path)
         fileContent = fileContent .. '[' .. value.line .. ':' .. value.column .. ']' .. ' - ' .. value.tokenType .. ' : ' .. (value.value or '_') .. '\n';
     end
     outputFile:write(fileContent);
-    print('lexed succesfully');
     return resultTokens;
 end
 
