@@ -248,9 +248,18 @@ function ONE_OR_MORE(index, ...)
 end
 
 function NODE.CHUNK()
+    local indexCpy = INDEX;
+    local exports = OPTIONAL(INDEX, TokenType.EXPORTS_KEYWORD, TokenType.AT_OPERATOR, NODE.TYPE);
+    if exports[3] then
+        exports = exports[3];
+    else
+        exports = nil;
+        INDEX = indexCpy;
+    end
     local ast = MATCH(NODE.BLOCK);
+
     if ast and INDEX == #LEXEMS + 1 then
-        return ast;
+        return ast, exports;
     else
         print('syntax error!');
         print('error at line ' .. LEXEMS[MAX_INDEX].line .. ', column: ' .. LEXEMS[MAX_INDEX].column);
@@ -264,7 +273,7 @@ function NODE.BLOCK()
     local retstat = {value = nil};
 
     if SET(stats, OPTIONAL_MULTIPLE(INDEX, NODE.STAT)) and SET(retstat, OPTIONAL(INDEX, NODE.RETSTAT)) then
-        return {node = NodeType.BLOCK, stats = stats.val, retstat = retstat.val};
+        return {node = NodeType.BLOCK_NODE, stats = stats.val, retstat = retstat.val};
     end
     INDEX = indexCpy;
 
@@ -451,12 +460,27 @@ function NODE.STAT()
     matchedValues = {val = nil};
     if SET(matchedValues, MATCH(TokenType.OPERATOR_KEYWORD, NODE.UNOP, NODE.FUNCBODY)) then
         if #(matchedValues.val[3].parlist.namelist or {}) == 1 then
-            print('unop');
             return {node = NodeType.UNARY_OPERATOR_OVERLOAD_NODE, 
                     op = matchedValues.val[2].symbol,
                     body = matchedValues.val[3]
                 }
         end
+    end
+    INDEX = indexCpy;
+
+    local isLocal = {val = nil};
+    matchedValues = {val = nil};
+    if SET(isLocal, OPTIONAL(INDEX, TokenType.LOCAL_KEYWORD)) and 
+    SET(matchedValues, MATCH(TokenType.DEFAULT_KEYWORD, TokenType.FOR_KEYWORD, TokenType.IDENTIFIER, TokenType.IS_KEYWORD, NODE.EXP)) then
+        local islocal = nil;
+        if isLocal.val then
+            islocal = true;
+        end
+        return {node = NodeType.DEFAULT_SET_NODE, 
+                type = matchedValues.val[3].value, 
+                exp = matchedValues.val[5],
+                isLocal = islocal;
+            }
     end
     INDEX = indexCpy;
 
@@ -655,7 +679,7 @@ function NODE.RETSTAT()
     if MATCH(TokenType.RETURN_KEYWORD) and 
     SET(expressions, OPTIONAL(INDEX, NODE.EXPLIST)) and 
     OPTIONAL(INDEX, TokenType.SEMICOLON_MARK) then
-        return {expressions = expressions.val};
+        return {expressions = expressions.val, node = NodeType.RETURN_NODE};
     end
     INDEX = indexCpy;
 
@@ -859,7 +883,8 @@ function NODE.EXP()
     INDEX = indexCpy;
 
     if SET(matchedExp, MATCH(NODE.UNOP, NODE.EXP)) then
-        return {node = NodeType.UNEXP_NODE, unop = matchedExp.val[1], exp = matchedExp.val[2]};
+        local op = {node = NodeType.UNEXP_NODE, unop = matchedExp.val[1], exp = matchedExp.val[2]};
+        return {node = NodeType.EVALUABLE_NODE, exp = matchedExp.val, op = op;};
     end
     INDEX = indexCpy;
 

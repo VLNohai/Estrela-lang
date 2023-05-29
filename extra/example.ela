@@ -1,5 +1,3 @@
-local a = requireELA('module');
-
-class a as
-
+class MyClass as
+    a @number;
 end

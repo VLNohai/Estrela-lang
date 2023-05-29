@@ -1,9 +1,8 @@
 local NodeType = require('tokens').NodeType;
 local utils = require('utils');
+local mapTokensToFields = require('metatableOps');
 local Generator = {};
 local OutputFile = nil;
-local Code = "--end of dependencies\n";
-local dependencies = {};
 local depsPath;
 
 -----------------------BLOCK---------------------
@@ -48,10 +47,10 @@ local function writeFunction(is_local, name, args, body_as_string, memberOf)
     return code;
 end
 
-local function loadDependency(name, onMainFile)
+local function loadDependency(dependencies, fileCode, name, onMainFile)
     if not dependencies[name] then
         if onMainFile then
-            Code = 'local _dep_' .. name .. ' = require("deps.' .. name  .. '");\n' .. Code; 
+            fileCode = 'local _dep_' .. name .. ' = require("deps.' .. name  .. '");\n' .. fileCode; 
         end
         local src = io.open('prefabs/' .. name .. '.lua');
         if src then
@@ -64,6 +63,7 @@ local function loadDependency(name, onMainFile)
         end
         dependencies[name] = true;
     end
+    return fileCode;
 end
 
 local function fromLogicNodeToTable(node)
@@ -398,6 +398,8 @@ end
 generateExp = function(exp)
     local code = '';
     if exp.node == NodeType.EVALUABLE_NODE then
+        if exp.nilSafe then print('nil safe cheeeeeck'); end;
+        utils.dump_print(exp);
         code = code .. generateValue(exp.exp);
         if exp.op then
             code = code .. ' ' .. exp.op.binop.value .. ' ' .. generateExp(exp.op.term);
@@ -434,6 +436,9 @@ end
 
 generateFunctioncall = function(functioncall)
     local code = '';
+    if functioncall.isRequire then
+        return 'require(' .. '"' .. functioncall.call.args[1].exp.value .. '"' .. ')';
+    end
     if functioncall.isThis then
         code = currentThisIndex;
     end
@@ -484,9 +489,6 @@ end
 
 local function generateLogicBlock(block, memberOf)
     local localCode = '';
-    loadDependency('utils', true);
-    loadDependency('linkedlist');
-    loadDependency('logic', true);
     --BODY
     local bodyCode = '';
     local funcList = '';
@@ -538,8 +540,7 @@ local function generateInstantiationFunc(classDeclaration)
     code = code .. 'function ' .. classDeclaration.id .. ':new(constructor, ...)\n'
     code = code .. 'local new;\n';
     code = code .. 'new = _dep_utils.deepCopy(' .. classDeclaration.id .. ', new);\n';
-    code = code .. 'setmetatable(new, self)\n';
-    code = code .. 'self.__index = self\n';
+    code = code .. 'setmetatable(new, getmetatable(self))\n';
     code = code .. 'new.constructor[constructor](new, ...);';
     code = code .. 'new.constructor = nil;\n';
     code = code ..  'return new\n';
@@ -602,18 +603,56 @@ local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
     return code;
 end
 
-local function generateOverloadFunc(overload)
-    local code = 'function _Op_';
-    if overload.node == NodeType.BINARY_OPERATOR_OVERLOAD_NODE then
-        code = code .. overload.type1 .. '_' .. overload.op .. '_' .. overload.type2 .. '(';
+local function generateDefaultSet(defaultSet)
+    local code = '';
+    if not defaultSet.isLocal then
+        code = code .. '_dep_defaults.set(';
+        code = code .. '"' .. defaultSet.type .. '",' .. generateExp(defaultSet.exp);
+        code = code .. ');\n';
+    else
+        code = code .. 'local _default_' .. defaultSet.type .. ' = ' .. generateExp(defaultSet.exp);
     end
-    code = code .. generateNamelist(overload.body.parlist.namelist) .. ')\n';
-    code = code .. generateBlock(overload.body.block) .. 'end\n';
-
     return code;
 end
 
-function Generator.generate(ast, mainFilePath, filename)
+local function saveTypesToCastFile(declaredTypes)
+    local outputFile = io.open('prefabs/types.lua', "w")
+    local code = 'local types = {\n';
+    for classId, classInfo in pairs(declaredTypes) do
+        code = code .. '["' .. classId .. '"]' .. ' = {\n'; 
+        for name, value in pairs(classInfo.fields) do
+            code = code .. '["' .. name .. '"] = true;\n';
+        end
+        code = code .. '};\n'
+    end
+    local code = code .. '\n}\nreturn types;';
+    if outputFile then
+        outputFile:write(code); 
+        outputFile:close();
+    end
+end
+
+local function generateOverloadFunc(overload, declaredTypes)
+    local code = '_dep_overload.addOperator(';
+    code = code .. overload.type1 .. ',';
+    if declaredTypes[overload.type2] then
+        code = code .. overload.type2 .. ',';
+    else
+        code = code .. '"' .. overload.type2 .. '",';
+    end
+    code = code .. '"' .. mapTokensToFields[overload.op] .. '",';
+    code = code .. 'function(' .. generateParlist(overload.body.parlist) .. ')\n'
+    code = code .. generateBlock(overload.body.block);
+    code = code .. 'end);';
+    return code;
+end
+
+function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
+    local fileCode = "--end of dependencies\n";
+    local dependencies = {};
+    if isMainFile then
+        saveTypesToCastFile(linkResult.types);
+    end
 
     --HANDLE FILES
     local command = 'mkdir "' .. mainFilePath .. '/build' .. '" 2>nul'
@@ -629,7 +668,8 @@ function Generator.generate(ast, mainFilePath, filename)
     if not astfile then return; end;
     astfile:write(utils.dump(ast));
     --------------------------------
-
+    fileCode = loadDependency(dependencies, fileCode, 'globals', true);
+    fileCode = loadDependency(dependencies, fileCode, 'defaults', true);
 
     statRouter = {};
 
@@ -701,6 +741,10 @@ function Generator.generate(ast, mainFilePath, filename)
         return generateFunctioncall(functioncall) .. ';';
     end
 
+    statRouter[NodeType.DEFAULT_SET_NODE] = function (defaultSet)
+        return generateDefaultSet(defaultSet);
+    end
+
     statRouter[NodeType.ASSIGNMENT_NODE] = function (assign)
         local localCode = '';
         localCode = localCode .. generateVarlist(assign.left) .. ' = ' .. generateExplist(assign.right) .. ';';
@@ -708,27 +752,36 @@ function Generator.generate(ast, mainFilePath, filename)
     end
 
     statRouter[NodeType.LOGIC_BLOCK_NODE] = function (block)
+        fileCode = loadDependency(dependencies, fileCode, 'utils', true);
+        fileCode = loadDependency(dependencies, fileCode, 'linkedlist');
+        fileCode = loadDependency(dependencies, fileCode, 'logic', true);
         return generateLogicBlock(block);
     end
 
     local overloadFunction = function (overload)
-        return generateOverloadFunc(overload);
+        return generateOverloadFunc(overload, linkResult.types);
     end
     statRouter[NodeType.BINARY_OPERATOR_OVERLOAD_NODE] = overloadFunction;
     statRouter[NodeType.UNARY_OPERATOR_OVERLOAD_NODE] = overloadFunction;
 
     statRouter[NodeType.CLASS_DECLARATION_NODE] = function (classDeclaration)
-        loadDependency('utils', true);
-        loadDependency('cast', true);
-        loadDependency('types');
+        fileCode = loadDependency(dependencies, fileCode, 'utils', true);
+        fileCode = loadDependency(dependencies, fileCode, 'cast', true);
+        fileCode = loadDependency(dependencies, fileCode, 'types');
+        fileCode = loadDependency(dependencies, fileCode, 'overload', true);
+
+        local code = '';
         local oldThisIndex = currentThisIndex;
         currentThisIndex = 'self.';
-        local code = classDeclaration.id .. ' = {}';
-        code = code .. 'do\n';
+        
+        code = code .. classDeclaration.id .. ' = {}\n';
+        code = code .. 'local _overload_meta = _dep_overload.getMeta();\n'
+        code = code .. '_overload_meta.typename = "' .. classDeclaration.id .. '";\n'
+        code = code .. 'setmetatable(' .. classDeclaration.id .. ',_overload_meta);\n';
         code = code .. classDeclaration.id .. '.' .. 'constructor = {};\n';
         
         code = code .. classDeclaration.id .. '.public = {';
-        for key, _ in pairs(classDeclaration.fields) do
+        for key, _ in pairs(classDeclaration.fields or {}) do
             code = code .. '["' .. key .. '"] = true;';
         end
         code = code .. '};\n';
@@ -738,8 +791,6 @@ function Generator.generate(ast, mainFilePath, filename)
         end
 
         code = code .. generateClassStats(classDeclaration.id, classDeclaration.stats, classDeclaration.baseClassId, classDeclaration.baseClassArgs, classDeclaration.IndexOfBaseConstructor);
-        code = code .. 'end\n'
-
         currentThisIndex = oldThisIndex;
         return code;
     end
@@ -747,13 +798,16 @@ function Generator.generate(ast, mainFilePath, filename)
     for index, stat in ipairs(ast.stats) do
         if statRouter[stat.node] then
             local temp = statRouter[stat.node](stat) .. '\n';
-            Code = Code .. temp;
+            fileCode = fileCode .. temp;
         end
     end
-    if OutputFile then
-        OutputFile:write(Code); 
+    if ast.retstat.expressions then
+        fileCode = fileCode .. 'return ' .. generateExplist(ast.retstat.expressions) .. ';\n';
     end
-    Code = "--end of dependencies\n";
+    
+    if OutputFile then
+        OutputFile:write(fileCode); 
+    end
 end
 
 return Generator;

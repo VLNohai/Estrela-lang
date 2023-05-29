@@ -13,9 +13,11 @@ end
 
 function linker.linkElaFile(path)
     local filename = nil;
+    local isMainFile = false;
     if not MainFilePath then
         filename = path:match(".*/(.-)%.");
         MainFilePath = Utils.pathTo(path);
+        isMainFile = true;
     else
         filename = string.match(path, "[^.]+$");
         path = Utils.getModulePath(MainFilePath, path);
@@ -26,10 +28,12 @@ function linker.linkElaFile(path)
     print('now on file ' .. path);
     local Lexems = Lexer.lex(path);
     if Lexems then
-        local AST = Parser.parse(Lexems);
+        local AST, exportedType = Parser.parse(Lexems);
         if AST then
-            local linkResult = Semantic.check(AST);
-            Generator.generate(AST, MainFilePath, filename);
+            local linkResult = Semantic.check(AST, exportedType);
+            if linkResult then
+                Generator.generate(AST, linkResult, MainFilePath, filename, isMainFile);
+            end
             return linkResult;
         end
     end

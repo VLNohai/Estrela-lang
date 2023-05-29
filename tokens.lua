@@ -78,7 +78,10 @@ Tokens.TokenType = {
     LOGIC_KEYWORD = 72,
     UNIQUE_KEYWORD = 73,
     OPERATOR_KEYWORD = 74,
-    UNARY_MINUS_OPERATOR = 75
+    UNARY_MINUS_OPERATOR = 75,
+    EXPORTS_KEYWORD = 76,
+    DEFAULT_KEYWORD = 77,
+    IS_KEYWORD = 78
 };
 
 Tokens.MapKeywords = {
@@ -117,7 +120,10 @@ Tokens.MapKeywords = {
     ['new'] = Tokens.TokenType.NEW_KEYWORD,
     ['logic'] = Tokens.TokenType.LOGIC_KEYWORD,
     ['unique'] = Tokens.TokenType.UNIQUE_KEYWORD,
-    ['operator'] = Tokens.TokenType.OPERATOR_KEYWORD
+    ['operator'] = Tokens.TokenType.OPERATOR_KEYWORD,
+    ['exports'] = Tokens.TokenType.EXPORTS_KEYWORD,
+    ['default'] = Tokens.TokenType.DEFAULT_KEYWORD,
+    ['is'] = Tokens.TokenType.IS_KEYWORD
 }
 
 Tokens.MapOperators = {
@@ -223,7 +229,10 @@ Tokens.NodeType = {
     FUNC_BODY_NODE = 61,
     CAST_NODE = 62,
     BINARY_OPERATOR_OVERLOAD_NODE = 63,
-    UNARY_OPERATOR_OVERLOAD_NODE = 64
+    UNARY_OPERATOR_OVERLOAD_NODE = 64,
+    REQUIRE_NODE = 65,
+    RETURN_NODE = 66,
+    DEFAULT_SET_NODE = 67
 }
 
 return Tokens;

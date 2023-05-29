@@ -1,5 +1,6 @@
 local types = {
-["a"] = {
+["MyClass"] = {
+["a"] = true;
 };
 
 }
