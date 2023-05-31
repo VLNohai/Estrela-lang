@@ -185,6 +185,7 @@ local function spreadExp(exp)
     return code;
 end
 
+local generateVar;
 local function handleLogicStats(stats, containing_func_args)
     local code = '';
     local invalidate_stat = '';
@@ -200,6 +201,9 @@ local function handleLogicStats(stats, containing_func_args)
         elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
             code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') ' .. invalidate_stat;
         elseif stat.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
+            if stat.replaceWith then
+                stat.id = generateVar(stat.replaceWith);
+            end
             if stat.is_inbuilt then
                 code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') ' ..  invalidate_stat;
             else
@@ -271,23 +275,33 @@ local function generateCall(call)
         if call.node == NodeType.CALL_NODE then
             code = code .. generateArgs(call.args);
         elseif call.node == NodeType.SELF_CALL_NODE then
-            code = code .. ':' .. code .. call.id .. generateArgs(call.args);
+            if not call.switchToPoint then
+                code = code .. ':' .. code .. call.id .. generateArgs(call.args);
+            else
+                code = code .. '.' .. code .. call.id .. generateArgs(call.args);
+            end
         end
     end
     return code;
 end
 
 local generateExp;
-local function generateSuffix(suffixList)
+local function generateSuffix(suffixList, isValue)
     local code = '';
+    local nilSafeChecks = {};
     for index, suffix in ipairs(suffixList) do
         if suffix.node == NodeType.POINT_INDEX_NODE then
             code = code .. '.' .. suffix.id;
         elseif suffix.node == NodeType.BRACKET_INDEX_NODE then
-            code = code .. '[' .. generateExp(suffix.val) .. ']';
+            local ending = '';
+            if isValue and suffix.nilSafe then
+                nilSafeChecks[#nilSafeChecks+1] = suffix.nilSafe;
+                ending = ')';
+            end
+            code = code .. '[' .. generateExp(suffix.val) .. ']' .. ending;
         end
     end
-    return code;
+    return code, nilSafeChecks;
 end
 
 local function generatePrefix(var)
@@ -305,7 +319,17 @@ local function generatePrefix(var)
      return code;
 end
 
-local function generateVar(var)
+local function generateNilSafeChecks(checks)
+    local code = '';
+    checks = utils.reverse(checks);
+    for index, check in ipairs(checks) do
+        local localDefault = '_default_' .. string.gsub(check, "|", "_of_")
+        code = code .. '_dep_defaults.safe("' .. string.gsub(check, "|", "_of_") .. '",' .. localDefault .. ',';
+    end
+    return code;
+end
+
+generateVar = function(var, isValue)
     local code = '';
     if var.isThis then
         code = currentThisIndex .. code;
@@ -313,8 +337,10 @@ local function generateVar(var)
     if var.id then
         code = code .. var.id;
     else
+        local tempCode, checks = generateSuffix(var.suffix, isValue);
+        if isValue then code = code .. generateNilSafeChecks(checks) end;
         code = code .. generatePrefix(var);
-        code = code .. generateSuffix(var.suffix);
+        code = code .. tempCode;
         code = code .. generateCall(var.call);
     end
     return code;
@@ -360,7 +386,19 @@ local generateFunctioncall;
 local function generateValue(value)
     local code = '';
     if value.valType == 'var' then
-        return generateVar(value.value);
+        return generateVar(value.value, true);
+    elseif value.node == NodeType.CAST_NODE or value.node == NodeType.CAST_CHECK_NODE then
+        if not value.safety then
+            return generateExp(value.exp);
+        elseif value.safety == 'check' then
+            return '_dep_defaults.safe("' .. string.gsub(value.castTo, "|", "_of_")  .. '",' .. '_default_' .. string.gsub(value.castTo, "|", "_of_") .. ',_dep_cast.cast(' .. generateExp(value.exp) .. ',"' .. string.gsub(value.castTo, "|", "_of_") .. '"))';
+        elseif value.safety == 'deepcopy' then
+            return '_dep_utils.deepCopy(' .. generateExp(value.exp) .. ')';
+        elseif value.safety == 'validate' then
+            return '_dep_cast.validate(' .. generateExp(value.exp) .. ',"' .. string.gsub(value.castTo, "|", "_of_") .. '")';
+        else
+            print('cast safety level not implemented');
+        end
     elseif value.valType == 'functioncall' then
         return generateFunctioncall(value.value);
     elseif value.type == 'boolean' or 
@@ -381,16 +419,6 @@ local function generateValue(value)
         code =  value.id .. ':' .. 'new(' .. value.indexOfMatch
         if #value.args > 0 then code = code .. ',' .. generateExplist(value.args); end
         code = code .. ')';
-    elseif value.node == NodeType.CAST_NODE then
-        if not value.safety then
-            return generateExp(value.exp);
-        elseif value.safety == 'check' then
-            return '_dep_cast.cast(' .. generateExp(value.exp) .. ',"' .. value.castTo .. '")';
-        elseif value.safety == 'deepcopy' then
-            return '_dep_utils.deepcopy(' .. generateExp(value.exp) .. ');';
-        else
-            print('cast safety level not implemented');
-        end
     end
     return code;
 end
@@ -399,7 +427,6 @@ generateExp = function(exp)
     local code = '';
     if exp.node == NodeType.EVALUABLE_NODE then
         if exp.nilSafe then print('nil safe cheeeeeck'); end;
-        utils.dump_print(exp);
         code = code .. generateValue(exp.exp);
         if exp.op then
             code = code .. ' ' .. exp.op.binop.value .. ' ' .. generateExp(exp.op.term);
@@ -408,6 +435,8 @@ generateExp = function(exp)
         code = code .. exp.unop.value .. ' ' .. generateExp(exp.exp);
     elseif exp.node == NodeType.LAMBDA_FUNC_NODE then
         return generateLambdaFunc(exp.body);
+    elseif exp.node == NodeType.DEFAULT_PLACEHOLDER_NODE then
+        return '(_default_' .. string.gsub(exp.type, "|", "_of_") .. ' or _dep_defaults.get("' .. string.gsub(exp.type, "|", "_of_") .. '"))';
     end
     return code;
 end
@@ -426,7 +455,11 @@ end
 generateExplist = function(explist)
     local code = '';
     for index, exp in ipairs(explist) do
-        code = code .. generateExp(exp);
+        if exp.safety == 'deepcopy' then
+            code = code .. '_dep_utils.deepCopy(' .. generateExp(exp) .. ')';
+        else
+            code = code .. generateExp(exp);
+        end
         if index < #explist then
             code = code .. ',';
         end
@@ -495,13 +528,15 @@ local function generateLogicBlock(block, memberOf)
     is_block_unique = block.is_unique;
     bodyCode = bodyCode .. tablesToLogicLists(block.args, block.id);
     for index, func in ipairs(block.funcs) do
-        local header, footer = handleLogicArgs(block.args, func.args);
-        local func_id = block.id .. '_' .. index;
-        funcList = funcList .. func_id .. ',';
-        bodyCode = bodyCode .. writeFunction(true, (func_id), utils.extractField(block.args, 'id'),
+        if func.node == NodeType.LOGIC_PREDICATE_NODE then
+            local header, footer = handleLogicArgs(block.args, func.args);
+            local func_id = block.id .. '_' .. index;
+            funcList = funcList .. func_id .. ',';
+            bodyCode = bodyCode .. writeFunction(true, (func_id), utils.extractField(block.args, 'id'),
             'local scID = _dep_logic.newScopeId()\n' 
             .. header .. handleLogicStats(func.stats, func.args) .. footer
-        );
+            );
+        end
     end
     --YIELDING THE RESULTS
     if not is_block_unique then
@@ -530,7 +565,7 @@ local function generateLogicBlock(block, memberOf)
     end
 
     --SIGNATURE
-    localCode = localCode .. writeFunction(false, block.id, utils.extractField(block.args, 'id'), bodyCode, memberOf);
+    localCode = localCode .. writeFunction(block.isLocal, block.id, utils.extractField(block.args, 'id'), bodyCode, memberOf);
 
     return localCode;
 end
@@ -539,7 +574,7 @@ local function generateInstantiationFunc(classDeclaration)
     local code = '';
     code = code .. 'function ' .. classDeclaration.id .. ':new(constructor, ...)\n'
     code = code .. 'local new;\n';
-    code = code .. 'new = _dep_utils.deepCopy(' .. classDeclaration.id .. ', new);\n';
+    code = code .. 'new = _dep_utils.deepCopyWithoutStatic(' .. classDeclaration.id .. ', new);\n';
     code = code .. 'setmetatable(new, getmetatable(self))\n';
     code = code .. 'new.constructor[constructor](new, ...);';
     code = code .. 'new.constructor = nil;\n';
@@ -607,10 +642,10 @@ local function generateDefaultSet(defaultSet)
     local code = '';
     if not defaultSet.isLocal then
         code = code .. '_dep_defaults.set(';
-        code = code .. '"' .. defaultSet.type .. '",' .. generateExp(defaultSet.exp);
+        code = code .. '"' .. string.gsub(defaultSet.type, "|", "_of_") .. '",' .. generateExp(defaultSet.exp);
         code = code .. ');\n';
     else
-        code = code .. 'local _default_' .. defaultSet.type .. ' = ' .. generateExp(defaultSet.exp);
+        code = code .. 'local _default_' .. string.gsub(defaultSet.type, "|", "_of_")  .. ' = ' .. generateExp(defaultSet.exp);
     end
     return code;
 end
@@ -670,6 +705,7 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     --------------------------------
     fileCode = loadDependency(dependencies, fileCode, 'globals', true);
     fileCode = loadDependency(dependencies, fileCode, 'defaults', true);
+    fileCode = loadDependency(dependencies, fileCode, 'cast', true);
 
     statRouter = {};
 
@@ -766,7 +802,6 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
 
     statRouter[NodeType.CLASS_DECLARATION_NODE] = function (classDeclaration)
         fileCode = loadDependency(dependencies, fileCode, 'utils', true);
-        fileCode = loadDependency(dependencies, fileCode, 'cast', true);
         fileCode = loadDependency(dependencies, fileCode, 'types');
         fileCode = loadDependency(dependencies, fileCode, 'overload', true);
 

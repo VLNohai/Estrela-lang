@@ -53,6 +53,7 @@ function utils.reverse(tb)
 end
 
 function utils.dump(o)
+    local type = luaType or type;
     if type(o) == 'table' then
        local s = '{ '
        for k,v in pairs(o) do
@@ -89,7 +90,7 @@ function utils.homogeouns_array(map, maxn)
     return array;
 end
 
-function utils.deepCopy(orig, target, copies, visited)
+function utils.deepCopy(orig, target, copies, visited, withoutStatic)
     copies = copies or {}
     visited = visited or {}
     local orig_type = type(orig)
@@ -103,10 +104,12 @@ function utils.deepCopy(orig, target, copies, visited)
             copies[orig] = copy
             visited[copy] = true
             for orig_key, orig_value in next, orig, nil do
-                if copy[orig_key] == nil then
-                    local orig_key_copy = utils.deepCopy(orig_key, nil, copies, visited)
-                    local orig_value_copy = utils.deepCopy(orig_value, nil, copies, visited)
-                    copy[orig_key_copy] = orig_value_copy
+                if orig_key ~= 'static' or (not withoutStatic) then
+                    if copy[orig_key] == nil then
+                        local orig_key_copy = utils.deepCopy(orig_key, nil, copies, visited)
+                        local orig_value_copy = utils.deepCopy(orig_value, nil, copies, visited)
+                        copy[orig_key_copy] = orig_value_copy
+                    end
                 end
             end
             local orig_metatable = getmetatable(orig)
@@ -119,6 +122,10 @@ function utils.deepCopy(orig, target, copies, visited)
         copy = orig
     end
     return copy
+end
+
+function utils.deepCopyWithoutStatic(orig, target, copies, visited)
+    return utils.deepCopy(orig, target, copies, visited, true);
 end
 
 return utils;

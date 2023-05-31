@@ -251,7 +251,7 @@ function NODE.CHUNK()
     local indexCpy = INDEX;
     local exports = OPTIONAL(INDEX, TokenType.EXPORTS_KEYWORD, TokenType.AT_OPERATOR, NODE.TYPE);
     if exports[3] then
-        exports = exports[3];
+        exports = utils.fromTypeNodeToString(exports[3]);
     else
         exports = nil;
         INDEX = indexCpy;
@@ -442,7 +442,11 @@ function NODE.STAT()
         if matchedUnique.val.value then
             is_unique = true;
         end
-        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val, isLocal = isLocal};
+        local islocal = nil;
+        if isLocal.val.value then
+            islocal = true;
+        end
+        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val, funcs = matchedFunctions.val, isLocal = islocal};
     end
     INDEX = indexCpy;
 
@@ -471,13 +475,13 @@ function NODE.STAT()
     local isLocal = {val = nil};
     matchedValues = {val = nil};
     if SET(isLocal, OPTIONAL(INDEX, TokenType.LOCAL_KEYWORD)) and 
-    SET(matchedValues, MATCH(TokenType.DEFAULT_KEYWORD, TokenType.FOR_KEYWORD, TokenType.IDENTIFIER, TokenType.IS_KEYWORD, NODE.EXP)) then
+    SET(matchedValues, MATCH(TokenType.DEFAULT_KEYWORD, TokenType.FOR_KEYWORD, NODE.TYPE, TokenType.IS_KEYWORD, NODE.EXP)) then
         local islocal = nil;
-        if isLocal.val then
+        if isLocal.val.value then
             islocal = true;
         end
         return {node = NodeType.DEFAULT_SET_NODE, 
-                type = matchedValues.val[3].value, 
+                type = utils.fromTypeNodeToString(matchedValues.val[3]), 
                 exp = matchedValues.val[5],
                 isLocal = islocal;
             }
@@ -517,48 +521,29 @@ function NODE.CLASSSTAT()
     local indexCpy = INDEX;
 
     local funcBody = {val = nil};
-    local accessMod = {val = nil};
     local staticMod = {val = nil};
     
     if MATCH(TokenType.SEMICOLON_MARK) then
         return {node = NodeType.SEMICOLON_NODE};
     end
 
-    if MATCH(TokenType.STATIC_KEYWORD) and SET(funcBody, MATCH(TokenType.CONSTRUCTOR_KEYWORD, NODE.FUNCBODY)) then
+    if SET(funcBody, MATCH(TokenType.CONSTRUCTOR_KEYWORD, NODE.FUNCBODY)) then
         return {
-            node = NodeType.STATIC_CONSTRUCTOR_NODE, 
+            node = NodeType.CONSTRUCTOR_NODE, 
             body = funcBody.val[2]
         };
     end
     INDEX = indexCpy;
 
-    if SET(accessMod, OPTIONAL(INDEX, NODE.ACCESSMOD)) and SET(funcBody, MATCH(TokenType.CONSTRUCTOR_KEYWORD, NODE.FUNCBODY)) then
-        local access = 'private';
-        if #accessMod.val > 0 then
-            access = accessMod.val
-        end
-        return {
-            node = NodeType.CONSTRUCTOR_NODE, 
-            body = funcBody.val[2], 
-            access = access
-        };
-    end
-    INDEX = indexCpy;
-
-    if SET(accessMod, OPTIONAL(INDEX, NODE.ACCESSMOD)) and 
-    SET(staticMod, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and 
+    local staticMod = {val = nil};
+    if SET(staticMod, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and 
     SET(funcBody, MATCH(TokenType.IDENTIFIER, NODE.FUNCBODY)) then
-        local access = 'private';
         local static = nil;
-        if #accessMod.val > 0 then
-            access = accessMod.val;
-        end
-        if #staticMod.val > 0 then
+        if staticMod.val.value then
             static = true;
         end
         return {
             node = NodeType.MEMBER_FUNCTION_NODE, 
-            access = access, 
             static = static, 
             id = funcBody.val[1].value, 
             body = funcBody.val[2]
@@ -568,29 +553,29 @@ function NODE.CLASSSTAT()
 
     local matchedId = {val = nil};
     local matchedParams = {val = nil};
+    local matchedType = {val = nil};
     if MATCH(TokenType.ABSTRACT_KEYWORD) and SET(matchedId, MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK)) and
-    SET(matchedParams, OPTIONAL(INDEX, NODE.PARLIST)) and MATCH(TokenType.RIGHT_PARAN_MARK) then
-        return { node = NodeType.ABSTRACT_METHOD_NODE, params = matchedParams.val, id = matchedId.val[1].value; }
+    SET(matchedParams, OPTIONAL(INDEX, NODE.PARLIST)) and MATCH(TokenType.RIGHT_PARAN_MARK) and SET(matchedType, OPTIONAL(INDEX, TokenType.ARROW_OPERATOR, NODE.TYPE)) then
+        local type = nil;
+        if matchedType.val[2] then
+            type = utils.fromTypeNodeToString(matchedType.val[2]);
+        end
+        return { node = NodeType.ABSTRACT_METHOD_NODE, params = matchedParams.val, id = matchedId.val[1].value; type = type};
     end
     INDEX = indexCpy;
 
     local nameList = {val = nil};
     local expList = {val = nil};
-    if SET(accessMod, OPTIONAL(INDEX, NODE.ACCESSMOD)) and 
-    SET(staticMod, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and  
+    local staticMod = {val = nil};
+    if SET(staticMod, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and  
     SET(nameList, MATCH(NODE.NAMELIST)) and 
     SET(expList, OPTIONAL(INDEX, TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
-        local access = 'private';
         local static = nil;
-        if #accessMod.val > 0 then
-            access = accessMod.val;
-        end
-        if #staticMod.val > 0 then
+        if staticMod.val.value then
             static = true;
         end
         return {
             node = NodeType.CLASS_FIELD_DELCARATION_NODE,
-            access = access,
             static = static,
             left = nameList.val,
             right = expList.val[2]
@@ -602,7 +587,9 @@ function NODE.CLASSSTAT()
     local matchedFunctions = { val = nil };
     local matchedID = {val = nil};
     local matchedUnique = {val = nil};
-    if SET(accessMod, OPTIONAL(INDEX, NODE.ACCESSMOD)) and
+    local staticMod = {val = nil};
+    local isLocal = {val = nil};
+    if SET(staticMod, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and
     MATCH(TokenType.LOGIC_KEYWORD) and
     SET(matchedUnique, OPTIONAL(INDEX, TokenType.UNIQUE_KEYWORD)) and
     SET(matchedID, MATCH(TokenType.IDENTIFIER)) and
@@ -613,26 +600,15 @@ function NODE.CLASSSTAT()
         if matchedUnique.val.value then
             is_unique = true;
         end
-        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val or {}, funcs = matchedFunctions.val, access = accessMod.val};
+        local static = nil;
+        if staticMod.val.value then
+            static = true;
+        end
+        return { node = NodeType.LOGIC_BLOCK_NODE, id = matchedID.val.value, is_unique = is_unique, args =  matchedNames.val or {}, funcs = matchedFunctions.val, static = static};
     end
     INDEX = indexCpy;
 
     return false
-end
-
-function NODE.ACCESSMOD()
-
-    if MATCH(TokenType.PUBLIC_KEYWORD) then
-        return 'public';
-    end 
-    if MATCH(TokenType.PRIVATE_KEYWORD) then
-        return 'private';
-    end 
-    if MATCH(TokenType.PROTECTED_KEYWORD) then
-        return 'protected';
-    end
-    
-    return false;
 end
 
 function NODE.ATTNAMELIST()
@@ -924,7 +900,7 @@ function NODE.VALUE()
         return {type = 'triplePoint', value = matchedValue.val.value}
     end
     if SET(matchedValue, MATCH(TokenType.NEW_KEYWORD, TokenType.IDENTIFIER, NODE.ARGS)) then
-        return {type = matchedValue.val[2].value, node = NodeType.INSTANTIATION_NODE, id = matchedValue.val[2].value, args = matchedValue.val[3]};
+        return {type = matchedValue.val[2].value, value = matchedValue.val[2].value, node = NodeType.INSTANTIATION_NODE, id = matchedValue.val[2].value, args = matchedValue.val[3]};
     end
     INDEX = indexCpy;
     if SET(matchedValue, MATCH(NODE.TABLECONSTRUCTOR)) then
@@ -946,8 +922,16 @@ function NODE.VALUE()
     end
     INDEX = indexCpy;
 
-    if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.EXP, TokenType.AS_KEYWORD, TokenType.IDENTIFIER, TokenType.RIGHT_PARAN_MARK)) then
-        return {node = NodeType.CAST_NODE, exp = matchedValue.val[2], castTo = matchedValue.val[4].value}
+    local matchedType = {val=nil};
+    if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.EXP, TokenType.AS_KEYWORD))
+    and SET(matchedType, MATCH(TokenType.IDENTIFIER) or MATCH(TokenType.FUNCTION_KEYWORD) or MATCH(TokenType.ANY_KEYWORD)) and MATCH(TokenType.RIGHT_PARAN_MARK) then
+        return {node = NodeType.CAST_NODE, exp = matchedValue.val[2], castTo = matchedType.val.value}
+    end
+    INDEX = indexCpy;
+
+    if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.EXP, TokenType.IS_KEYWORD))
+    and SET(matchedType, MATCH(TokenType.IDENTIFIER) or MATCH(TokenType.FUNCTION_KEYWORD) or MATCH(TokenType.ANY_KEYWORD)) and MATCH(TokenType.RIGHT_PARAN_MARK) then
+        return {node = NodeType.CAST_CHECK_NODE, exp = matchedValue.val[2], castTo = matchedType.val.value}
     end
     INDEX = indexCpy;
 
@@ -1145,7 +1129,7 @@ function NODE.PARLIST()
     INDEX = indexCpy;
 
     if MATCH(TokenType.TRIPLE_POINT_MARK) then
-        return true;
+        return {namelist = {}, isTriple = true};
     end
     INDEX = indexCpy;
 
@@ -1313,7 +1297,18 @@ function NODE.LOGIC_FUNC()
         for index, var in ipairs(matchedVarList.val) do
             vars[#vars + 1] = var[2];
         end
-        return { args = vars, stats = matchedStats.val};
+        return {node = NodeType.LOGIC_PREDICATE_NODE, args = vars, stats = matchedStats.val};
+    end
+    INDEX = indexCpy;
+
+    local matchedValues = {val = nil};
+    if SET(matchedValues, MATCH(NODE.VAR, TokenType.AS_KEYWORD, TokenType.IDENTIFIER)) then
+        return {node = NodeType.LOGIC_ALIAS_NODE, var = matchedValues.val[1], alias = matchedValues.val[3].value};
+    end
+    INDEX = indexCpy;
+
+    if MATCH(TokenType.SEMICOLON_MARK) then
+        return {node = NodeType.SEMICOLON_NODE};
     end
     INDEX = indexCpy;
 

@@ -1,3 +1,22 @@
 class MyClass as
-    a @number;
+    a @number = 15;
+    constructor() end
+    test(a @string, b @number, ...) 
+        local c = {...};
+        print(c[1]);
+    end;
+    static logic func(x)
+        (x) end;
+    end
 end
+
+default for MyClass is new MyClass();
+
+local function test(a @string, b @string, ...) -> string
+    x = {...};
+    return '';
+end
+
+local a @MyClass;
+
+a:test('1', 2, a);

@@ -25,7 +25,8 @@ local basicTypes = {
     ['function'] = true, 
     ['userdata'] = true, 
     ['thread'] = true,
-    ['any'] = true
+    ['any'] = true,
+    ['logic_function'] = true
 }
 
 local function addNewError(message, SemanticState)
@@ -43,6 +44,11 @@ local function getTypeAndDepth(varType)
     return str, num;
 end
 
+local function getClassName(classType)
+    local before, after = classType:match("(.-)@(.*)")
+    return before, after;
+end
+
 local function resolveVarScopeType(varId, isThis, SemanticState)
     local traverseScope = SemanticState.currentScope;
     if isThis then
@@ -57,6 +63,9 @@ local function resolveVarScopeType(varId, isThis, SemanticState)
             return 'any';
         end
     else
+        if SemanticState.declaredTypes[varId] then
+            return 'class@' .. varId;
+        end
         while traverseScope.father and (not traverseScope[varId]) do
             traverseScope = traverseScope.father;
         end
@@ -215,6 +224,16 @@ local function recursivePolish(exp, stack, SemanticState)
         exp.exp.safety = castSafety;
         exp.exp.type = castTo;
         exp.exp.traversed = true;
+    elseif exp.exp.node == NodeType.CAST_CHECK_NODE then
+        local castTo =  exp.exp.castTo;
+        local currentType = resolveExpType(exp.exp.exp, SemanticState);
+        local castSafety = validateCast(currentType, castTo, SemanticState);
+        if castSafety then
+            castSafety = 'validate';
+        end
+        exp.exp.safety = castSafety;
+        exp.exp.type = 'boolean';
+        exp.exp.traversed = true;
     elseif exp.exp.valType == 'var' then
         exp.exp.type = resolveVarType(exp.exp.value, SemanticState);
     elseif exp.exp.valType == 'functioncall' then
@@ -239,8 +258,7 @@ local function recursivePolish(exp, stack, SemanticState)
 end
 
 local function validateFunctionCall(functionParams, callArgs, SemanticState)
-    local paramTypeList = namelistToTypelist(functionParams, SemanticState);
-    for index, paramType in ipairs(paramTypeList) do
+    for index, paramType in ipairs(functionParams) do
         if paramType ~= 'any' then
             if callArgs[index] then
                 local argType = resolveExpType(callArgs[index], SemanticState);
@@ -252,22 +270,35 @@ local function validateFunctionCall(functionParams, callArgs, SemanticState)
             end
         end
     end
+    for i = #functionParams + 1, #callArgs, 1 do
+        local argType = resolveExpType(callArgs[i], SemanticState);
+        if SemanticState.declaredTypes[argType] then
+            callArgs[i].safety = 'deepcopy';
+        end
+    end
 end
 
-local function resolveIndexType(type, suffix, prefixId, typedCall, SemanticState)
+local function resolveIndexType(type, suffix, prefixId, SemanticState)
     local lastId = '#';
     local lastType = '#';
     local depth;
+    local nilSafe = true;
     for index, suff in ipairs(suffix) do
         if type == 'any' then return 'any' end;
         type, depth = getTypeAndDepth(type);
         if depth == 0 then
             if suff.node == NodeType.POINT_INDEX_NODE or suff.node == NodeType.SELF_CALL_NODE then
-                if SemanticState.declaredTypes[type] then
+                local isClass, className = getClassName(type);
+                if SemanticState.declaredTypes[type] or SemanticState.declaredTypes[className] then
                     lastId = suff.id;
-                    lastType = type;
-                    local field = SemanticState.declaredTypes[type].fields[suff.id] or SemanticState.declaredTypes[type].abstractMethods[suff.id];
-                    if not field then
+                    lastType = className or type;
+                    local field;
+                    if not isClass then
+                        field = SemanticState.declaredTypes[type].fields[suff.id] or SemanticState.declaredTypes[type].abstractMethods[suff.id];
+                    else
+                        field = SemanticState.declaredTypes[className].static[suff.id];
+                    end
+                        if not field then
                         addNewError('Field ' .. suff.id .. ' not found on type ' .. type, SemanticState);
                         type = 'any';
                     else
@@ -280,9 +311,18 @@ local function resolveIndexType(type, suffix, prefixId, typedCall, SemanticState
                     type = 'any';
                 end
                 if suff.node == NodeType.SELF_CALL_NODE then
-                    if type == 'member_function' then
-                        type = SemanticState.declaredTypes[lastType].fields[lastId].returnType or 'any';
-                        validateFunctionCall(SemanticState.declaredTypes[lastType].fields[lastId].params, typedCall.args, SemanticState)
+                    if type == 'member_function' or type == 'static_function' or type == 'logic_member_function' then
+                        if type == 'member_function' or type == 'logic_member_function' then
+                            local functype = type;
+                            type = SemanticState.declaredTypes[lastType].fields[lastId].returnType or 'any';
+                            if functype == 'logic_member_function' then
+                                suff.switchToPoint = true;
+                            end
+                            validateFunctionCall(SemanticState.declaredTypes[lastType].fields[lastId].params, suff.args, SemanticState)
+                        else
+                            type = SemanticState.declaredTypes[lastType].static[lastId].returnType or 'any';
+                            validateFunctionCall(SemanticState.declaredTypes[lastType].static[lastId].params, suff.args, SemanticState)
+                        end
                         lastId = '#';
                         lastType = '#';
                     else
@@ -290,13 +330,13 @@ local function resolveIndexType(type, suffix, prefixId, typedCall, SemanticState
                     end
                 end
             elseif suff.node == NodeType.CALL_NODE then
-                if type == 'member_function' then
-                    addNewError('Member functions should be called with ":".', SemanticState);
+                if type == 'member_function' or type == 'static_function' then
+                    addNewError('Member or static functions should be called with ":"', SemanticState);
                     type = 'any';
-                elseif type == 'function' then
+                elseif type == 'function' or type == 'logic_function' then
                     if prefixId then
                         local _, returnType, params = resolveVarScopeType(prefixId, false, SemanticState);
-                        validateFunctionCall(params, typedCall.args, SemanticState)
+                        validateFunctionCall(namelistToTypelist(params, SemanticState), suff.args, SemanticState)
                         type = returnType or 'any';
                     else
                         type = 'any';
@@ -327,11 +367,12 @@ local function resolveIndexType(type, suffix, prefixId, typedCall, SemanticState
                 if depth > 0 then
                     type = type .. '|' .. depth;
                 end
+                suff.nilSafe = type;
             end
         end
         prefixId = suff.id;
     end
-    return type;
+    return type, nilSafe;
 end
 
 resolveExpType = function(exp, SemanticState)
@@ -374,9 +415,9 @@ local function validateTableType(table, varType, depth, SemanticState)
             end
         else
             if fieldType ~= 'table' and fieldType ~= 'nil' and fieldType ~= (varType .. '|' .. depth) then
-                addNewError('Wrong type ' .. fieldType .. ', ' ..varType .. '|'.. depth .. ' expected');
+                addNewError('Wrong type ' .. fieldType .. ', ' ..varType .. '|'.. depth .. ' expected', SemanticState);
             else
-                if fieldType == 'table' and field.node == NodeType.TABLE_CONSTRUCTOR_NODE then
+                if fieldType == 'table' and field.node == NodeType.TABLE_CONSTRUCTOR_NODE or field.node == NodeType.EXP_WRAPPER_NODE then
                     validateTableType(field.exp.exp.value, varType, depth - 1, SemanticState);
                 else
                     addNewError('Cannot initialize homogenous structure with non homogenous table', SemanticState);
@@ -393,8 +434,13 @@ local function validateAssignedType(left, right, SemanticState)
     local varType, depth = getTypeAndDepth(left.type);
     if depth > 0 and expressionType == 'table' then
         validateTableType(right.exp.value, varType, depth - 1, SemanticState);
-    elseif left.type ~= 'any' and left.type ~= expressionType then
-        addNewError('Wrong type ' .. expressionType .. ' assgined to ' .. left.type, SemanticState);
+    elseif left.type ~= 'any' then
+        if expressionType == 'nil' then
+            right.node = NodeType.DEFAULT_PLACEHOLDER_NODE;
+            right.type = left.type;
+        elseif left.type ~= expressionType then
+            addNewError('Wrong type ' .. expressionType .. ' assgined to ' .. left.type, SemanticState);
+        end
     end
 end
 
@@ -432,10 +478,10 @@ resolveVarType = function(var, SemanticState)
     end
     if var.suffix then
         local prefixType, depth = getTypeAndDepth(type);
-        if type ~= 'table' and type ~= 'any' and (not SemanticState.declaredTypes[type]) and type ~= 'function' and depth == 0 then
+        if type ~= 'table' and type ~= 'any' and (not SemanticState.declaredTypes[type]) and type ~= 'function' and depth == 0 and (not getClassName(type)) then
             addNewError('illegal index of prefix of type ' .. type, SemanticState);
         else
-            type = resolveIndexType(type, var.suffix, (var.id or var.prefix), var.call, SemanticState);
+            type = resolveIndexType(type, var.suffix, (var.id or var.prefix), SemanticState);
             var.traversed = true;
         end
     end
@@ -473,6 +519,9 @@ local function addConstructor(classID, ctrNode, SemanticState)
        ctrNode.body.type = nil;
     end
     local typesList = namelistToTypelist(ctrNode.body.parlist.namelist or {}, SemanticState);
+    if ctrNode.body.parlist.isTriple then
+        addNewError('Constructors should have fixed number of parameters', SemanticState)
+    end
     for index, var in ipairs(ctrNode.body.parlist.namelist or {}) do
         if SemanticState.declaredTypes[classID].inheritParams[var.id] then
             addNewError('Base class parameters are injected in constructors implicitly, remove the explicit parameter with same name ' .. var.id, SemanticState);
@@ -495,9 +544,10 @@ local function declareClass(classDecNode, SemanticState)
         addNewError('found redeclaration of type ' .. classDecNode.id, SemanticState);
         return;
     end
-    SemanticState.declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, inheritParams = {}, abstractMethods = {}, castTo = {}, abstractCount = 0};
+    SemanticState.declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, inheritParams = {}, abstractMethods = {}, castTo = {}, static = {}, abstractCount = 0};
     if classDecNode.baseClassId then
         SemanticState.declaredTypes[classDecNode.id].fields = utils.deepCopy(SemanticState.declaredTypes[classDecNode.baseClassId].fields);
+        SemanticState.declaredTypes[classDecNode.id].static = utils.deepCopy(SemanticState.declaredTypes[classDecNode.baseClassId].static);
         SemanticState.declaredTypes[classDecNode.id].castTo = {[classDecNode.baseClassId] = true;};
         local currentCastTo = SemanticState.declaredTypes[classDecNode.id].castTo;
         for castType, _ in pairs(SemanticState.declaredTypes[classDecNode.baseClassId].castTo) do
@@ -523,38 +573,66 @@ local function declareClass(classDecNode, SemanticState)
         if stat.node == NodeType.CONSTRUCTOR_NODE then
             addConstructor(classDecNode.id, stat, SemanticState);
         elseif stat.node == NodeType.ABSTRACT_METHOD_NODE then
-            local abstracts = SemanticState.declaredTypes[classDecNode.id].abstractMethods;
-            abstracts[stat.id] = stat.params;
-            SemanticState.declaredTypes[classDecNode.id].abstractCount = SemanticState.declaredTypes[classDecNode.id].abstractCount + 1;
-            classDecNode.isAbstract = true;
-            SemanticState.declaredTypes[classDecNode.id].fields[stat.id] = {type = 'member_function', returnType = stat.type, params = (stat.params.namelist or {})};
+            if not SemanticState.declaredTypes[classDecNode.id].fields[stat.id] and (not SemanticState.declaredTypes[classDecNode.id].static[stat.id]) then
+                local abstracts = SemanticState.declaredTypes[classDecNode.id].abstractMethods;
+                SemanticState.declaredTypes[classDecNode.id].abstractCount = SemanticState.declaredTypes[classDecNode.id].abstractCount + 1;
+                classDecNode.isAbstract = true;
+                abstracts[stat.id] = {type = 'member_function', returnType = stat.type, params = (stat.params.namelist or {})};
+                SemanticState.declaredTypes[classDecNode.id].fields[stat.id] = {type = 'member_function', returnType = stat.type, params = (stat.params.namelist or {})};
+            else
+                addNewError('Field redeclaration for ' .. stat.id .. ' in class ' .. classDecNode.id, SemanticState);
+            end
         elseif stat.node == NodeType.MEMBER_FUNCTION_NODE or stat.node == NodeType.LOGIC_BLOCK_NODE then
-            if classDecNode.baseClassId then
-                if SemanticState.declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id] and not abstractsImplemented[stat.id] then
-                    if equivalentArgs(
-                        namelistToTypelist(SemanticState.declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id].namelist or {}, SemanticState), 
-                        namelistToTypelist((stat.args or stat.body.parlist.namelist) or {}, SemanticState)
-                    ) then
-                        abstractsImplemented[stat.id] = true;
-                        abstractsImplementedCount = abstractsImplementedCount + 1;
+            if not SemanticState.declaredTypes[classDecNode.id].fields[stat.id] and (not SemanticState.declaredTypes[classDecNode.id].static[stat.id]) then
+                if not stat.static then
+                    if stat.node == NodeType.LOGIC_BLOCK_NODE then
+                        SemanticState.declaredTypes[classDecNode.id].fields[stat.id] = {type = 'logic_member_function', returnType = (stat.body or {}).type, params = namelistToTypelist(stat.args or {}, SemanticState)};
+                    else
+                        SemanticState.declaredTypes[classDecNode.id].fields[stat.id] = {type = 'member_function', returnType = (stat.body or {}).type, params = namelistToTypelist(stat.body.parlist.namelist or {}, SemanticState)};
                     end
+                else
+                    SemanticState.declaredTypes[classDecNode.id].static[stat.id] = {type = 'static_function', returnType = (stat.body or {}).type, params = namelistToTypelist((stat.args or stat.body.parlist.namelist) or {}, SemanticState)};
+                end
+            else
+                if classDecNode.baseClassId and (not stat.static) then
+                    if SemanticState.declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id] and not abstractsImplemented[stat.id] then
+                        if equivalentArgs(
+                            namelistToTypelist(SemanticState.declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id].params or {}, SemanticState), 
+                            namelistToTypelist((stat.args or stat.body.parlist.namelist) or {}, SemanticState)
+                        )
+                        and
+                            (SemanticState.declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id].returnType or 'any')
+                            ==
+                            ((stat.body or {}).type or 'any')
+                        then
+                            abstractsImplemented[stat.id] = true;
+                            abstractsImplementedCount = abstractsImplementedCount + 1;
+                        else
+                            addNewError('Signature for ' .. stat.id .. ' was not respected', SemanticState);
+                        end
+                    end
+                else
+                    addNewError('Field redeclaration for ' .. stat.id .. ' in class ' .. classDecNode.id, SemanticState);
                 end
             end
-            SemanticState.declaredTypes[classDecNode.id].fields[stat.id] = {type = 'member_function', returnType = (stat.body or {}).type, params = namelistToTypelist((stat.args or stat.body.parlist.namelist) or {}, SemanticState)};
         elseif stat.node == NodeType.CLASS_FIELD_DELCARATION_NODE then
+            if not stat.right then stat.right = {node = NodeType.EXPLIST_NODE} end;
             for index, field in ipairs(stat.left) do
                 field.type = field.type or 'any';
                 validate_declared_type(field, SemanticState);
-                if not SemanticState.declaredTypes[classDecNode.id].fields[field.id] then
+                if not SemanticState.declaredTypes[classDecNode.id].fields[field.id] and (not SemanticState.declaredTypes[classDecNode.id].static[field.id]) then
                     if stat.right and stat.right[index] then
                         validateAssignedType(field, stat.right[index], SemanticState);
                         SemanticState.declaredTypes[classDecNode.id].fields[field.id] = {type = field.type};
                     elseif field.type ~= 'any' and (not SemanticState.defaults[field.type]) then
                         addNewError('No default value found for ' .. field.type, SemanticState);
                     else
-                        if field.type ~= 'any' then field.nilSafe = field.type end;
-                        utils.dump_print(field);
-                        SemanticState.declaredTypes[classDecNode.id].fields[field.id] = {type = field.type or 'any'};
+                        stat.right[index] = {node = NodeType.DEFAULT_PLACEHOLDER_NODE, type = field.type};
+                        if not stat.static then
+                            SemanticState.declaredTypes[classDecNode.id].fields[field.id] = {type = field.type or 'any'};
+                        else
+                            SemanticState.declaredTypes[classDecNode.id].static[field.id] = {type = field.type or 'any'};
+                        end
                     end
                 else
                     addNewError('Field redeclaration for ' .. field.id .. ' in class ' .. classDecNode.id, SemanticState);
@@ -571,6 +649,7 @@ end
 local function checkDeclarationNode(currentNode, child, SemanticState)
     for index, var in ipairs(child.left) do
         --NEW DECLARED Local
+        child.right = child.right or {};
         if not SemanticState.currentScope[var.id] then
             validate_declared_type(var, SemanticState);
             SemanticState.currentScope[var.id] = {type = var.type};
@@ -580,21 +659,26 @@ local function checkDeclarationNode(currentNode, child, SemanticState)
                 addNewError('Redefinition in the same scope of variable ' .. var.id .. ' with different type ' .. '(was ' .. SemanticState.currentScope[var.id].type .. ', now is ' .. var.type .. ' )', SemanticState);
             end
         end
-        local right = (child.right or {})[index];
-        if (not right) and var.type ~= 'any' and (not SemanticState.defaults[var.type]) then
-            addNewError('No default value found for ' .. var.type, SemanticState);
+        local right = child.right[index];
+        if (not right) and (not SemanticState.defaults[var.type]) then
+            if var.type ~= 'any' then
+                addNewError('No default value found for ' .. var.type, SemanticState);
+            end
         else
             if right then
                 validateAssignedType(var, right, SemanticState); 
+            else
+                child.right[index] = {node = NodeType.DEFAULT_PLACEHOLDER_NODE, type = var.type};
             end
         end
     end
 end
 
 local function checkAssignmentNode(assignment, SemanticState)
+    assignment.right = assignment.right or {node = NodeType.EXPLIST_NODE};
     for index, var in ipairs(assignment.left) do
         local type = resolveVarType(var, SemanticState);
-        local right = (assignment.right or {})[index];
+        local right = assignment.right[index];
         if (not right) and type ~= 'any' then
             addNewError('Static variable was assigned nil', SemanticState);
         else
@@ -605,7 +689,15 @@ local function checkAssignmentNode(assignment, SemanticState)
                 if depth > 0 and rightType == 'table' then
                     validateTableType(right.exp.value, varType, depth - 1, SemanticState);
                 elseif leftType ~= 'any' and leftType ~= rightType then
-                    addNewError('Wrong type ' .. rightType .. ' assigned to ' .. leftType, SemanticState);
+                    if rightType == 'nil' then
+                        assignment.right[index] = {node = NodeType.DEFAULT_PLACEHOLDER_NODE, type = leftType};
+                    else
+                        local rightFlatType, rightDepth = getTypeAndDepth(rightType);
+                        if rightDepth > 0 and rightFlatType == leftType then
+                        else
+                            addNewError('Wrong type ' .. rightType .. ' assigned to ' .. leftType, SemanticState);
+                        end
+                    end
                 end
             end
         end
@@ -681,6 +773,17 @@ local function checkIfReturnsOnAllPaths(ifNode)
     return 1;
 end
 
+local function validateLogicBlockNumberOfArgs(logicBlock, SemanticState)
+    local numberOfArgs = #logicBlock.args;
+    for index, func in ipairs(logicBlock.funcs) do
+        if func.node == NodeType.LOGIC_PREDICATE_NODE then
+            if numberOfArgs ~= #func.args then
+                addNewError('All logic predicates should have the same number of args as the containing block ', SemanticState)
+            end 
+        end
+    end
+end
+
 local traverse;
 local function validateNodeValue(value, currentNode, key, SemanticState)
     if type(value) == 'table' then
@@ -732,12 +835,18 @@ local function validateNodeValue(value, currentNode, key, SemanticState)
         end
 
         if value.node == NodeType.DEFAULT_SET_NODE then
-            if (not SemanticState.declaredTypes[value.type]) and (not basicTypes[value.type]) and value.type ~= 'any' then
+            local flatType, depth = getTypeAndDepth(value.type);
+            if (not SemanticState.declaredTypes[flatType]) and (not basicTypes[flatType]) and value.type ~= 'any' then
                 addNewError('Cannot resolve type ' .. value.type, SemanticState);
             end
             local assignedType = resolveExpType(value.exp, SemanticState);
-            if value.type ~= assignedType then
+            if depth > 0 and assignedType == 'table' and value.exp.exp.value.node == NodeType.TABLE_CONSTRUCTOR_NODE or value.exp.exp.value.node == NodeType.EXP_WRAPPER_NODE then
+                validateTableType(value.exp.exp.value, flatType, depth - 1, SemanticState);
+                SemanticState.defaults[value.type] = true;
+            elseif value.type ~= assignedType then
                 addNewError('Cannot set default of type ' .. value.type .. ' to an expression of type ' .. assignedType, SemanticState);
+            else
+                SemanticState.defaults[value.type] = true;
             end
         end
 
@@ -760,12 +869,28 @@ local function validateNodeValue(value, currentNode, key, SemanticState)
         --CLASSES
         if value.node == NodeType.INSTANTIATION_NODE then
             if not SemanticState.declaredTypes[value.id] then addNewError('No declaration found for type ' .. value.id, SemanticState) return end
-            if #SemanticState.declaredTypes[value.id].abstractMethods > 0 then addNewError('Cannot instantiate abstract class ' .. value.id, SemanticState) end
+            if SemanticState.declaredTypes[value.id].abstractCount > 0 then addNewError('Cannot instantiate abstract class ' .. value.id, SemanticState) end
             validateConstructorCall(value, SemanticState.declaredTypes[value.type].constructors, SemanticState);
         end
 
         if value.node == NodeType.BINARY_OPERATOR_OVERLOAD_NODE or value.node == NodeType.UNARY_OPERATOR_OVERLOAD_NODE then
             validateOverload(value, SemanticState);
+        end
+
+        if value.node == NodeType.LOGIC_ALIAS_NODE then
+            local varType = resolveVarType(value.var, SemanticState);
+            if varType == 'logic_member_function' or varType == 'logic_function' then
+                SemanticState.logicAliasses[value.alias] = {var = value.var};
+            else
+                addNewError('Can only alias logic functions in logic block, got ' .. varType .. ' instead', SemanticState)
+            end
+        end
+
+        if value.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
+            if SemanticState.logicAliasses[value.id] then
+                value.replaceWith = SemanticState.logicAliasses[value.id].var;
+                value.shouldBeSelf = SemanticState.logicAliasses[value.id].shouldBeSelf;
+            end
         end
 
         if value.node == NodeType.FUNC_BODY_NODE or value.node == NodeType.DO_BLOCK_NODE then
@@ -831,6 +956,15 @@ local function validateNodeValue(value, currentNode, key, SemanticState)
             end
             SemanticState.inControlStucture = oldSemanticStateInConstrolStructure;
             SemanticState.currentScope = SemanticState.currentScope.father;
+        elseif value.node == NodeType.LOGIC_BLOCK_NODE then
+            if value.isLocal then
+                SemanticState.currentScope[value.id] = {type = 'logic_function'};
+            elseif not SemanticState.currentClass then
+                addNewError('Logic blocks should be local ', SemanticState);
+            end
+            validateLogicBlockNumberOfArgs(value, SemanticState);
+            traverse(value, SemanticState);
+            SemanticState.logicAliasses = {};
         else
             if key ~= 'namelist' then
                 traverse(value, SemanticState); 
@@ -861,6 +995,7 @@ function Semantic.check(ast, exportedType)
     SemanticState.currentReturnScopeReturnCertitudes = 0;
     SemanticState.inControlStucture = false;
     SemanticState.errors = {}
+    SemanticState.logicAliasses = {};
     
     SemanticState.declaredOperations = {};
     SemanticState.overloadsList = {};

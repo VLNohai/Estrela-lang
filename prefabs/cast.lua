@@ -33,4 +33,12 @@ function cast.cast(var, castTo)
     end
 end
 
+function cast.validate(var, castTo)
+    if cast.cast(var, castTo) then
+        return true;
+    else
+        return false;
+    end
+end
+
 return cast;
