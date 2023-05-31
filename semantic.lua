@@ -13,7 +13,10 @@ local inbuildOperations = {
     ['number' .. ':' .. TokenType.DOUBLE_POINT_MARK .. ':' .. 'string'] = 'string',
     ['string' .. ':' .. TokenType.DOUBLE_POINT_MARK .. ':' .. 'number'] = 'string',
     ['string' .. ':' .. TokenType.DOUBLE_POINT_MARK .. ':' .. 'string'] = 'string',
-    ['number' .. ':' .. TokenType.EQUALS_OPERATOR .. ':' .. 'number'] = 'boolean'
+    ['number' .. ':' .. TokenType.EQUALS_OPERATOR .. ':' .. 'number'] = 'boolean',
+    [TokenType.HASH_OPERATOR .. ':' .. 'table'] = 'number';
+    [TokenType.HASH_OPERATOR .. ':' .. 'string'] = 'number';
+    [TokenType.UNARY_MINUS_OPERATOR .. ':' .. 'number'] = 'number';
 };
 
 local basicTypes = {
@@ -93,6 +96,27 @@ end
 local function operationType(termOneType, op, termTwoType, SemanticState)
     if termOneType == 'any' or termTwoType == 'any' then
         return 'any';
+    end
+    local _, depth = getTypeAndDepth(termOneType);
+    if depth > 0 then termOneType = 'table'; end;
+    local _, depth = getTypeAndDepth(termTwoType);
+    if depth > 0 then termTwoType = 'table'; end;
+
+    if op == TokenType.OR_KEYWORD then
+        if termOneType == termTwoType or termOneType == 'nil' or termTwoType == 'nil' then
+            return termOneType;
+        else
+            return 'any';
+        end
+    elseif 
+    op == TokenType.AND_KEYWORD or 
+    op == TokenType.EQUALS_OPERATOR or
+    op == TokenType.NOT_EQUALS_OPERATOR or
+    op == TokenType.MORE_OPERATOR or
+    op == TokenType.MORE_OR_EQUAL_OPERATOR or
+    op == TokenType.LESS_OPERATOR or
+    op == TokenType.LESS_OR_EQUAL_OPERATOR then
+        return 'boolean'
     end
     if inbuildOperations[termOneType .. ':' .. op .. ':' .. termTwoType] then
         return inbuildOperations[termOneType .. ':' .. op .. ':' .. termTwoType];
@@ -241,6 +265,19 @@ local function recursivePolish(exp, stack, SemanticState)
         exp.exp.type = resolveVarType(exp.exp.value, SemanticState);
         exp.exp.value.suffix[# exp.exp.value.suffix] = nil;
     end
+    if exp.op and exp.op.node == NodeType.UNOP_NODE then
+        local _, depth = getTypeAndDepth(exp.exp.type);
+        local termType = exp.exp.type;
+        if depth > 0 then termType = 'table' end;
+        local resultedType = inbuildOperations[exp.op.symbol .. ':' .. termType];
+        if resultedType then
+            SemanticState.polish[#SemanticState.polish+1] = resultedType;
+        elseif exp.exp.type ~= 'any' then
+            SemanticState.polish[#SemanticState.polish+1] = 'any';
+            addNewError('Unary operator ' .. exp.op.value .. ' not implemented for ' .. exp.exp. type, SemanticState);
+        end
+        return
+    end;
     SemanticState.polish[#SemanticState.polish+1] = exp.exp.type;
     if exp.op then
         local symbol = exp.op.binop.symbol;
@@ -591,7 +628,11 @@ local function declareClass(classDecNode, SemanticState)
                         SemanticState.declaredTypes[classDecNode.id].fields[stat.id] = {type = 'member_function', returnType = (stat.body or {}).type, params = namelistToTypelist(stat.body.parlist.namelist or {}, SemanticState)};
                     end
                 else
-                    SemanticState.declaredTypes[classDecNode.id].static[stat.id] = {type = 'static_function', returnType = (stat.body or {}).type, params = namelistToTypelist((stat.args or stat.body.parlist.namelist) or {}, SemanticState)};
+                    if stat.node == NodeType.LOGIC_BLOCK_NODE then
+                        SemanticState.declaredTypes[classDecNode.id].static[stat.id] = {type = 'logic_member_function', returnType = (stat.body or {}).type, params = namelistToTypelist(stat.args or {}, SemanticState)};
+                    else
+                        SemanticState.declaredTypes[classDecNode.id].static[stat.id] = {type = 'static_function', returnType = (stat.body or {}).type, params = namelistToTypelist((stat.args or stat.body.parlist.namelist) or {}, SemanticState)};
+                    end
                 end
             else
                 if classDecNode.baseClassId and (not stat.static) then
@@ -627,7 +668,11 @@ local function declareClass(classDecNode, SemanticState)
                     elseif field.type ~= 'any' and (not SemanticState.defaults[field.type]) then
                         addNewError('No default value found for ' .. field.type, SemanticState);
                     else
-                        stat.right[index] = {node = NodeType.DEFAULT_PLACEHOLDER_NODE, type = field.type};
+                        if field.type == 'any' then
+                            stat.right[index] = { exp = { value = 'nil', type = 'nil'}, node = 33}
+                        else
+                            stat.right[index] = {node = NodeType.DEFAULT_PLACEHOLDER_NODE, type = field.type};
+                        end
                         if not stat.static then
                             SemanticState.declaredTypes[classDecNode.id].fields[field.id] = {type = field.type or 'any'};
                         else
@@ -663,6 +708,8 @@ local function checkDeclarationNode(currentNode, child, SemanticState)
         if (not right) and (not SemanticState.defaults[var.type]) then
             if var.type ~= 'any' then
                 addNewError('No default value found for ' .. var.type, SemanticState);
+            else
+                child.right[index] ={ exp = { value = 'nil', type = 'nil'}, node = 33}
             end
         else
             if right then
@@ -817,6 +864,18 @@ local function validateNodeValue(value, currentNode, key, SemanticState)
         if value.node == NodeType.EVALUABLE_NODE then
             if not value.traversed then
                 resolveExpType(value, SemanticState);
+            end
+        end
+
+        if value.node == NodeType.FUNCTION_DECLARATION_NODE then
+            if value.body.type then
+                addNewError('functions can be declared with return type only on local declaration', SemanticState);
+            end
+            for index, param in ipairs(value.body.parlist.namelist or {}) do
+                if param.type then
+                    addNewError('functions can be declared with typed parameters only on local declaration', SemanticState);
+                    return;
+                end
             end
         end
 

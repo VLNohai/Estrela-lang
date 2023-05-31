@@ -303,6 +303,7 @@ function NODE.STAT()
     end
     INDEX = indexCpy;
 
+    local matchedValues = {val = nil};
     if SET(matchedValues, MATCH(NODE.FUNCTIONCALL)) then
         return {node = NodeType.FUNCTION_CALL_NODE, call = matchedValues.val.call, prefix = matchedValues.val.prefix, suffix = matchedValues.val.suffix};
     end
@@ -859,15 +860,14 @@ function NODE.EXP()
     INDEX = indexCpy;
 
     if SET(matchedExp, MATCH(NODE.UNOP, NODE.EXP)) then
-        local op = {node = NodeType.UNEXP_NODE, unop = matchedExp.val[1], exp = matchedExp.val[2]};
-        return {node = NodeType.EVALUABLE_NODE, exp = matchedExp.val, op = op;};
+        return {node = NodeType.EVALUABLE_NODE, exp = matchedExp.val[2].exp, op = matchedExp.val[1]};
     end
     INDEX = indexCpy;
 
     local matchedOp = {val = nil};
     if SET(matchedExp, MATCH(NODE.VALUE)) and SET(matchedOp, OPTIONAL(INDEX, NODE.BINOP, NODE.EXP)) then
         local op = nil;
-        if #matchedOp.val > 0 then
+        if matchedOp.val[2] then
             op = {node = NodeType.BINEXP_NODE, binop = matchedOp.val[1], term = matchedOp.val[2]};
         end
         return {node = NodeType.EVALUABLE_NODE, exp = matchedExp.val, op = op;};
@@ -894,7 +894,7 @@ function NODE.VALUE()
         return {type = 'number', value = matchedValue.val.value}
     end 
     if SET(matchedValue, MATCH(TokenType.STRING_VALUE)) then
-        return {type = 'string', value = matchedValue.val.value}
+        return {type = 'string', value = utils.escapeQuotes(matchedValue.val.value)}
     end
     if SET(matchedValue, MATCH(TokenType.TRIPLE_POINT_MARK)) then
         return {type = 'triplePoint', value = matchedValue.val.value}
@@ -1019,7 +1019,6 @@ function NODE.FUNCTIONCALL()
     SET(matchedCall, MATCH(NODE.CALL)) then
         local this = nil;
         if #isThis.val > 0 then
-            print("was this");
             this = true;
         end
         return {
@@ -1040,10 +1039,7 @@ function NODE.ARGS()
 
     local matchedArgs = {val = nil};
     if MATCH(TokenType.LEFT_PARAN_MARK) and SET(matchedArgs, OPTIONAL(INDEX, NODE.EXPLIST)) and MATCH(TokenType.RIGHT_PARAN_MARK) then
-        if #matchedArgs.val < 0 then
-            matchedArgs.val = nil;
-        end
-        return matchedArgs.val;
+        return matchedArgs.val or {};
     end
     INDEX = indexCpy;
 
@@ -1238,12 +1234,12 @@ function NODE.UNOP()
     local matchedOp = {val = nil};
     if SET(matchedOp, MATCH(TokenType.MINUS_OPERATOR)) or 
     SET(matchedOp, MATCH(TokenType.NOT_KEYWORD)) or 
-    SET(matchedOp, MATCH(TokenType.HASH_OPERATOR)) or 
-    SET(matchedOp, MATCH(TokenType.TILDE_OPERATOR)) then
+    SET(matchedOp, MATCH(TokenType.HASH_OPERATOR)) then
+        local symbol = matchedOp.val.tokenType;
         if matchedOp.val.tokenType == TokenType.MINUS_OPERATOR then
-            matchedOp.val.tokenType = TokenType.UNARY_MINUS_OPERATOR
+            symbol = TokenType.UNARY_MINUS_OPERATOR
         end
-        return {node = NodeType.UNOP_NODE, value = matchedOp.val.tokenType};
+        return {node = NodeType.UNOP_NODE, symbol = symbol, value = matchedOp.val.value};
     end
     INDEX = indexCpy;
 
@@ -1369,10 +1365,21 @@ function NODE.LOGIC_VALUE()
     end
 
     if SET(matchedValue, MATCH(TokenType.STRING_VALUE)) then
-        return { node = NodeType.VALUE_NODE, value = matchedValue.val.value };
+        return { node = NodeType.VALUE_NODE, value = utils.escapeQuotes(matchedValue.val.value) };
     end
 
     return false;
+end
+
+function NODE.LOGIC_WRAPPED_FUNCTION()
+    local indexCpy = INDEX;
+    
+    local matchedValues = {val = nil};
+    if SET(matchedValues, MATCH(TokenType.NOT_KEYWORD, TokenType.LEFT_PARAN_MARK, NODE.LOGIC_FUNCTION_CALL, TokenType.RIGHT_PARAN_MARK)) then
+        local functionCall = matchedValues.val[3];
+        functionCall.modifier = 'not';
+        return functionCall;
+    end
 end
 
 function NODE.LOGIC_FUNCTION_CALL()
@@ -1408,6 +1415,11 @@ function NODE.LOGIC_STAT()
     INDEX = indexCpy;
 
     if SET(matchedVal, MATCH(NODE.LOGIC_FUNCTION_CALL)) then
+        return matchedVal.val;
+    end
+    INDEX = indexCpy;
+
+    if SET(matchedVal, MATCH(NODE.LOGIC_WRAPPED_FUNCTION)) then
         return matchedVal.val;
     end
     INDEX = indexCpy;

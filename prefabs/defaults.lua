@@ -7,6 +7,7 @@ defaults.defaultValues = {
     ['table'] = {};
     ['function'] = function() print('undefined') end;
     ['thread'] = coroutine.create(function() end);
+    ['any'] = nil;
 };
 
 function defaults.set(typename, value)

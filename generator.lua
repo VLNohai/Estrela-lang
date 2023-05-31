@@ -299,6 +299,8 @@ local function generateSuffix(suffixList, isValue)
                 ending = ')';
             end
             code = code .. '[' .. generateExp(suffix.val) .. ']' .. ending;
+        elseif suffix.node == NodeType.CALL_NODE then
+            code = code .. generateCall(suffix.call);
         end
     end
     return code, nilSafeChecks;
@@ -312,11 +314,11 @@ local function generatePrefix(var)
     if type(var.prefix) == "string" then
         code = code .. var.prefix;
     else
-        if var.exp then
-            code = code .. '(' .. generateExp(var.exp)  .. ')'; 
+        if var.prefix and var.prefix.exp then
+            code = code .. '(' .. generateExp(var.prefix.exp)  .. ')'; 
         end
     end
-     return code;
+    return code;
 end
 
 local function generateNilSafeChecks(checks)
@@ -426,13 +428,14 @@ end
 generateExp = function(exp)
     local code = '';
     if exp.node == NodeType.EVALUABLE_NODE then
-        if exp.nilSafe then print('nil safe cheeeeeck'); end;
         code = code .. generateValue(exp.exp);
         if exp.op then
-            code = code .. ' ' .. exp.op.binop.value .. ' ' .. generateExp(exp.op.term);
+            if exp.op.node == NodeType.BINEXP_NODE then
+                code = code .. ' ' .. exp.op.binop.value .. ' ' .. generateExp(exp.op.term);
+            else
+                code = exp.op.value .. ' ' .. code;
+            end 
         end
-    elseif exp.node == NodeType.UNEXP_NODE then
-        code = code .. exp.unop.value .. ' ' .. generateExp(exp.exp);
     elseif exp.node == NodeType.LAMBDA_FUNC_NODE then
         return generateLambdaFunc(exp.body);
     elseif exp.node == NodeType.DEFAULT_PLACEHOLDER_NODE then
@@ -706,6 +709,7 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     fileCode = loadDependency(dependencies, fileCode, 'globals', true);
     fileCode = loadDependency(dependencies, fileCode, 'defaults', true);
     fileCode = loadDependency(dependencies, fileCode, 'cast', true);
+    fileCode = loadDependency(dependencies, fileCode, 'logic', true);
 
     statRouter = {};
 
@@ -767,7 +771,10 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     statRouter[NodeType.LOCAL_DECLARATION_NODE] = function (declaration)
         local code =  'local ' .. generateNamelist(declaration.left)  
         if declaration.right then
-           code = code .. ' = ' .. generateExplist(declaration.right); 
+            local explist = generateExplist(declaration.right); 
+            if explist ~= '' then
+                code = code .. ' = ' .. explist;
+            end  
         end
         code = code .. ';';
         return code;
@@ -789,8 +796,8 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
 
     statRouter[NodeType.LOGIC_BLOCK_NODE] = function (block)
         fileCode = loadDependency(dependencies, fileCode, 'utils', true);
-        fileCode = loadDependency(dependencies, fileCode, 'linkedlist');
         fileCode = loadDependency(dependencies, fileCode, 'logic', true);
+        fileCode = loadDependency(dependencies, fileCode, 'linkedlist');
         return generateLogicBlock(block);
     end
 

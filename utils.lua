@@ -151,4 +151,9 @@ function utils.getModulePath(mainFilePath, requiredPath)
     return mainFilePath .. '/' .. requiredPath .. '.ela';
 end
 
+function utils.escapeQuotes(s)
+    return (s:gsub('[\'"]', '\\%0'))
+end
+
+
 return utils;
