@@ -1,0 +1,4 @@
+requireELA('game');
+
+local x @test = new test();
+yahoo = -x;

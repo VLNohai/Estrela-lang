@@ -1,0 +1,9 @@
+class test as
+    x = 1;
+    constructor() end;
+end
+
+
+operator-(a @test)
+    print(a.x .. ' Marioara');
+end

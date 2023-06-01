@@ -25,12 +25,11 @@ function linker.linkElaFile(path)
     if not Utils.fileExists(path) then
         return nil;
     end
-    print('now on file ' .. path);
     local Lexems = Lexer.lex(path);
     if Lexems then
         local AST, exportedType = Parser.parse(Lexems);
         if AST then
-            local linkResult = Semantic.check(AST, exportedType);
+            local linkResult = Semantic.check(AST, path, exportedType);
             if linkResult then
                 Generator.generate(AST, linkResult, MainFilePath, filename, isMainFile);
             end

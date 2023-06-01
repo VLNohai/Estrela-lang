@@ -6,7 +6,6 @@ Tokens.TokenType = {
     STRING_VALUE = 3,
     
     AND_KEYWORD = 4,
-    BREAK_KEYWORD = 5,
     DO_KEYWORD = 6,
     ELSE_KEYWORD = 7,
     ELSEIF_KEYWORD = 8,
@@ -86,7 +85,6 @@ Tokens.TokenType = {
 
 Tokens.MapKeywords = {
     ['and'] = Tokens.TokenType.AND_KEYWORD,
-    ['break'] = Tokens.TokenType.BREAK_KEYWORD,
     ['do'] = Tokens.TokenType.DO_KEYWORD,
     ['else'] = Tokens.TokenType.ELSE_KEYWORD,
     ['elseif'] = Tokens.TokenType.ELSEIF_KEYWORD,

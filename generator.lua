@@ -208,14 +208,28 @@ local function handleLogicStats(stats, containing_func_args)
                 code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') ' ..  invalidate_stat;
             else
                 if is_block_unique then
-                    code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
+                    if stat.modifier == 'not' then
+                        code = code .. 'local _logic_bindings_temp = _logic_bindings_\n';
+                        code = code .. 'if _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
+                        code = code .. '_logic_bindings_ = _logic_bindings_temp;\n';
+                    else
+                        code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
+                    end
                 else
-                    bind_depth = bind_depth + 1;
-                    code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
-                    code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
-                    code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
-                    code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')\n';
-                    code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+                    if stat.modifier == 'not' then
+                        code = code .. 'local _logic_co_temp = coroutine.create(' .. stat.id .. ');\n';
+                        code = code .. 'local _logic_bindings_temp = _dep_utils.deepCopy(_logic_bindings_' .. bind_depth .. ');\n'
+                        code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_temp, ' .. resolveFuncArgs(stat.args, true)  .. ')\n';
+                        code = code .. 'if _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+                        code = code .. '_logic_bindings_' .. bind_depth .. ' = _logic_bindings_temp;\n';
+                    else
+                        bind_depth = bind_depth + 1;
+                        code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
+                        code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
+                        code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
+                        code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')\n';
+                        code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+                    end
                 end
             end
         elseif stat.node == NodeType.LOGIC_ASSIGN_NODE then
@@ -530,10 +544,12 @@ local function generateLogicBlock(block, memberOf)
     local funcList = '';
     is_block_unique = block.is_unique;
     bodyCode = bodyCode .. tablesToLogicLists(block.args, block.id);
+    local funcIndex = 1;
     for index, func in ipairs(block.funcs) do
         if func.node == NodeType.LOGIC_PREDICATE_NODE then
             local header, footer = handleLogicArgs(block.args, func.args);
-            local func_id = block.id .. '_' .. index;
+            local func_id = block.id .. '_' .. funcIndex;
+            funcIndex = funcIndex + 1;
             funcList = funcList .. func_id .. ',';
             bodyCode = bodyCode .. writeFunction(true, (func_id), utils.extractField(block.args, 'id'),
             'local scID = _dep_logic.newScopeId()\n' 
@@ -549,7 +565,7 @@ local function generateLogicBlock(block, memberOf)
 
     if is_block_unique then
         bodyCode = bodyCode .. 'local _logic_ret_val = '
-        for index, func in ipairs(block.funcs) do
+        for index = 1, funcIndex - 1, 1 do
             bodyCode = bodyCode .. block.id .. '_' .. index .. '(' .. utils.listOfIdsToCommaString(block.args) .. ')' .. ' or ';
         end
             bodyCode = bodyCode .. 'nil;\n';
@@ -557,7 +573,7 @@ local function generateLogicBlock(block, memberOf)
             bodyCode = bodyCode .. 'if (not _logic_ret_val) or #_logic_ret_val == 0 then return nil end;\n'
             bodyCode = bodyCode .. 'if _Logic_stack_depth == 0 then _dep_logic.listOfListsToArray(_logic_ret_val) end\n'
             bodyCode = bodyCode .. 'return _logic_ret_val;\n';
-        else
+    else
             bodyCode = bodyCode .. 'local _logic_run = coroutine.create(_dep_logic.run);\n';
             bodyCode = bodyCode .. 'while coroutine.status(_logic_run) ~= "dead" do\n';
             bodyCode = bodyCode .. 'local _, temp = coroutine.resume(_logic_run, {' .. funcList .. '}, {' .. utils.listOfIdsToCommaString(block.args)  .. '});\n';
@@ -673,10 +689,14 @@ end
 local function generateOverloadFunc(overload, declaredTypes)
     local code = '_dep_overload.addOperator(';
     code = code .. overload.type1 .. ',';
-    if declaredTypes[overload.type2] then
-        code = code .. overload.type2 .. ',';
+    if overload.type2 then
+        if declaredTypes[overload.type2] then
+            code = code .. overload.type2 .. ',';
+        else
+            code = code .. '"' .. overload.type2 .. '",';
+        end
     else
-        code = code .. '"' .. overload.type2 .. '",';
+        code = code .. 'nil,';
     end
     code = code .. '"' .. mapTokensToFields[overload.op] .. '",';
     code = code .. 'function(' .. generateParlist(overload.body.parlist) .. ')\n'
@@ -710,6 +730,12 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     fileCode = loadDependency(dependencies, fileCode, 'defaults', true);
     fileCode = loadDependency(dependencies, fileCode, 'cast', true);
     fileCode = loadDependency(dependencies, fileCode, 'logic', true);
+    fileCode = loadDependency(dependencies, fileCode, 'utils', true);
+    fileCode = loadDependency(dependencies, fileCode, 'logic', true);
+    fileCode = loadDependency(dependencies, fileCode, 'utils', true);
+    fileCode = loadDependency(dependencies, fileCode, 'types', true);
+    fileCode = loadDependency(dependencies, fileCode, 'overload', true);
+    fileCode = loadDependency(dependencies, fileCode, 'linkedlist', true);
 
     statRouter = {};
 
@@ -795,9 +821,6 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     end
 
     statRouter[NodeType.LOGIC_BLOCK_NODE] = function (block)
-        fileCode = loadDependency(dependencies, fileCode, 'utils', true);
-        fileCode = loadDependency(dependencies, fileCode, 'logic', true);
-        fileCode = loadDependency(dependencies, fileCode, 'linkedlist');
         return generateLogicBlock(block);
     end
 
@@ -808,9 +831,6 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     statRouter[NodeType.UNARY_OPERATOR_OVERLOAD_NODE] = overloadFunction;
 
     statRouter[NodeType.CLASS_DECLARATION_NODE] = function (classDeclaration)
-        fileCode = loadDependency(dependencies, fileCode, 'utils', true);
-        fileCode = loadDependency(dependencies, fileCode, 'types');
-        fileCode = loadDependency(dependencies, fileCode, 'overload', true);
 
         local code = '';
         local oldThisIndex = currentThisIndex;

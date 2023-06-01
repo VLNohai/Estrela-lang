@@ -177,7 +177,7 @@ function lexer.lex(path)
                     end
                     if latest ~= closingSequence then print('unfinished string ' .. DEBUGLINE) return; end;
                     paragraph = string.sub(paragraph, 1, #paragraph - 2 - numberOfEquals);
-                    resultTokens[#resultTokens + 1] = {tokenType = tokens.TokenType.STRING_VALUE; value = paragraph; line = line; column = column - #paragraph - 1};
+                    resultTokens[#resultTokens + 1] = {tokenType = tokens.TokenType.STRING_VALUE; value = paragraph; line = line; column = column };
                 else
                     if(numberOfEquals > 0) then print("invalid long string delimiter " .. DEBUGLINE) return; end;
                     resultTokens[#resultTokens + 1] = {tokenType = tokens.MapMarkers['[']; line = line; column = column};
@@ -229,7 +229,7 @@ function lexer.lex(path)
             local brackets = '';
             local numberOfEquals = 0;
             local inside = false;
-            multiline = false;
+            local multiline = false;
             while c and c ~= '\n' do
                 if brackets == '[' then 
                     inside = true 
@@ -250,7 +250,7 @@ function lexer.lex(path)
 
             --MULTILINE COMMENTS
             if multiline then
-                content = '';
+                local content = '';
                 while c and content ~= ']' .. string.rep('=', numberOfEquals) .. ']' do
                     if #content == 2 + numberOfEquals then
                         content = string.sub(content, 2, 2 + numberOfEquals) .. c;
