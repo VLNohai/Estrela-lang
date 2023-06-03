@@ -3,8 +3,8 @@ local overload = {}
 local operators = {};
 
 function overload.addOperator(class, term, field, func)
-    if type(term) == "table" then
-        term = getmetatable(term).typename;
+    if luaType(term) == "table" then
+        term = getmetatable(term).typename or 'table';
     else
         term = 'nil';
     end
@@ -14,13 +14,17 @@ end
 local function fieldDecision(field)
     return function (a, b)
         local bType = '';
-        if field == '__unm' then
+        if field == '__unm' or field == '__len' then
             bType = 'nil';
             b = nil;
-        elseif type(b) == 'table' then
-            bType = getmetatable(b).typename;
+        elseif luaType(b) == 'table' then
+            if not getmetatable(b) then
+                bType = 'table';
+            else
+                bType = getmetatable(b).typename;
+            end
         else
-            bType = type(b);
+            bType = luaType(b);
         end
         return operators[getmetatable(a).typename .. '/' .. field .. '/' .. bType](a, b);
     end
@@ -28,6 +32,7 @@ end
 
 local metatable = {
     __unm = fieldDecision("__unm");
+    __len = fieldDecision("__len");
     __add = fieldDecision("__add");
     __sub = fieldDecision("__sub");
     __mul = fieldDecision("__mul");

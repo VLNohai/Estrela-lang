@@ -1,22 +1,4 @@
-local logic unique isOne(x)
-    (x) 
-        *x == 1;
-    end
-end
+requireELA('module')
 
-local logic remove(list, result)
-    ({}, {}) end;
-    ({h|t}, result)
-        remove(t, rez_rec);
-        not(isOne(h));
-        result = {h|rez_rec};
-    end
-    ({h|t}, result)
-        remove(t, result);
-        isOne(h);
-    end
-end
-
-local co = coroutine.create(remove);
-_, temp = coroutine.resume(co, {1, 2, 3, 4, 1, 1, 1});
-log(temp);
+local a @MyClass = new MyClass(1, 2);
+_dep_utils.dump_print(a);

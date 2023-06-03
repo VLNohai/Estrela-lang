@@ -23,12 +23,10 @@ function cast.cast(var, castTo)
         end
     else
         if type(var) ~= "table" then return nil end;
-        local typeInfo = declaredTypes[castTo];
-        for key, _ in pairs(typeInfo) do
-            if not var.public[key] then
-                return nil;
-            end
-        end
+        local typename = getmetatable(var or {}).typename or '';
+        local canCastTo = declaredTypes[typename];
+        if not canCastTo[castTo] then return nil end;
+        var.class = castTo;
         return var;
     end
 end

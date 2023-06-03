@@ -1,9 +1,80 @@
-class test as
-    x = 1;
-    constructor() end;
+requireELA('board');
+
+local function PopulateBoard(board @Board) -> Board
+    for row = 1, 8 do
+        for col = 1, 8 do
+            if (row + col) % 2 == 1 then
+                if row <= 3 then
+                    local black @BlackPiece = new BlackPiece((col as number), (row as number));
+                    board = board + (black as Piece);
+                elseif row >= 6 then
+                    local red @RedPiece = new RedPiece((col as number), (row as number));
+                    board = board + (red as Piece);
+                end
+            end
+        end
+    end
+    return board;
 end
 
+class Score : Drawable() as
+    redPlayer @number, blackPlayer @number;
+    constructor() end;
+    won(color @Color) 
+        if (color is Red) then
+            this.redPlayer = this.redPlayer + 1;
+        elseif (color is Black) then
+            this.blackPlayer = this.blackPlayer + 1;
+        end
+    end
+    draw() 
+        Color:setColorELA((new Black() as Color));
+        love.graphics.setFont(love.graphics.newFont(14));
+        love.graphics.print("Black Score:" .. this.blackPlayer, 12, 20);
+        Color:setColorELA((new Red() as Color));
+        love.graphics.print("Red Score:" .. this.blackPlayer, 12, Math2D.screenHeight - 20 - 14);
+    end;
+end
 
-operator-(a @test)
-    print(a.x .. ' Marioara');
+class Markers : Drawable() as
+    fields @{{boolean}} = {};
+    constructor() end
+    mark(x @number, y @number)
+        this.fields[y][x] = true;
+    end
+    unmark(x @number, y @number)
+        this.fields[y][x] = nil;
+    end
+    draw() end;
+end
+
+class Background : Drawable() as
+    constructor() end;
+    draw()
+        love.graphics.setColor(245/255, 245/255, 230/255);
+        love.graphics.rectangle('fill', 0, 0, Math2D.screenWidth, Math2D.screenHeight);
+        love.graphics.setColor(56 / 255, 32 / 255, 6 / 255);
+        love.graphics.rectangle('fill', Math2D:getOffsetToCenterHorizontally(Math2D.screenHeight), 0, Math2D.screenHeight, Math2D.screenHeight)
+    end;
+end
+
+class Game : Drawable() as
+    title @string = 'Checkers';
+    board @Board = new Board();
+    markers @Markers = new Markers();
+    score @Score = new Score();
+    background @Background = new Background();
+    drawables @{Drawable} = {};
+    constructor()
+        this.board = PopulateBoard(this.board);
+        this.drawables[#this.drawables+1] = (this.background as Drawable);
+        this.drawables[#this.drawables+1] = (this.board as Drawable);
+        this.drawables[#this.drawables+1] = (this.markers as Drawable);
+        this.drawables[#this.drawables+1] = (this.score as Drawable);
+    end;
+    draw()
+        for i=1, #this.drawables, 1 do
+            this.drawables[i]:draw();
+        end
+    end
 end

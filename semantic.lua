@@ -85,8 +85,9 @@ local function namelistToTypelist(namelist, SemanticState)
     local parNames = {};
     for index, parameter in ipairs(namelist) do
         local parType = parameter.type or 'any';
-        if (not SemanticState.declaredTypes[parType]) and (not basicTypes[parType]) then
-            addNewError('Cannot resolve type ' .. parType, SemanticState);
+        local flatType = getTypeAndDepth(parType);
+        if (not SemanticState.declaredTypes[flatType]) and (not basicTypes[flatType]) then
+            addNewError('Cannot resolve type ' .. flatType, SemanticState);
         end
         if parNames[parameter.id] ~= nil then
             addNewError('Parameter names must be unique', SemanticState);
@@ -268,22 +269,27 @@ local function recursivePolish(exp, stack, SemanticState)
         exp.exp.value.suffix[# exp.exp.value.suffix + 1] = exp.exp.value.call;
         exp.exp.type = resolveVarType(exp.exp.value, SemanticState);
         exp.exp.value.suffix[# exp.exp.value.suffix] = nil;
-    end
-    if exp.op and exp.op.node == NodeType.UNOP_NODE then
-        local _, depth = getTypeAndDepth(exp.exp.type);
-        local termType = exp.exp.type;
-        if depth > 0 then termType = 'table' end;
-        local resultedType = inbuildOperations[exp.op.symbol .. ':' .. termType] or SemanticState.declaredOperations[exp.op.symbol .. ':' .. termType];
-        if resultedType then
-            SemanticState.polish[#SemanticState.polish+1] = resultedType;
-        elseif exp.exp.type ~= 'any' then
-            SemanticState.polish[#SemanticState.polish+1] = 'any';
-            addNewError('Unary operator ' .. exp.op.value .. ' not implemented for ' .. exp.exp. type, SemanticState);
+    elseif exp.exp.node == NodeType.UNOP_EXP_NODE then
+        local firstType;
+        if exp.exp.value.valType == 'var' then
+            firstType = resolveVarType(exp.exp.value.value, SemanticState);
+            local flatType, depth = getTypeAndDepth(firstType);
+            if depth > 0 then
+                firstType = 'table';
+            end
+        else
+            firstType = exp.exp.value.type;
         end
-        return
-    end;
+        local key = exp.exp.op.symbol .. ':' .. firstType;
+        local resultedType = inbuildOperations[key] or SemanticState.declaredOperations[key];
+        if resultedType then
+            exp.exp.type = resultedType;
+        else
+            addNewError('Unary operator "' .. exp.exp.op.value .. '" not defined for type ' .. firstType, SemanticState);
+        end
+    end
     SemanticState.polish[#SemanticState.polish+1] = exp.exp.type;
-    if exp.op then
+    if exp.op and exp.op.node == NodeType.BINOP_NODE then
         local symbol = exp.op.binop.symbol;
         if stack.top == nil then
             stack:push(symbol);
@@ -356,9 +362,6 @@ local function resolveIndexType(type, suffix, prefixId, SemanticState)
                         if type == 'member_function' or type == 'logic_member_function' then
                             local functype = type;
                             type = SemanticState.declaredTypes[lastType].fields[lastId].returnType or 'any';
-                            if functype == 'logic_member_function' then
-                                suff.switchToPoint = true;
-                            end
                             validateFunctionCall(SemanticState.declaredTypes[lastType].fields[lastId].params, suff.args, SemanticState)
                         else
                             type = SemanticState.declaredTypes[lastType].static[lastId].returnType or 'any';
@@ -495,16 +498,24 @@ end
 local function appendLinkResultToState(linkResult, moduleName, SemanticState)
     for key, value in pairs(linkResult.types) do
         if SemanticState.declaredTypes[key] then
-            addNewError('Type "' .. key .. '" found in imported file "' .. moduleName .. '" was already declared');
+            addNewError('Type "' .. key .. '" found in imported file "' .. moduleName .. '" was already declared', SemanticState);
         else
             SemanticState.declaredTypes[key] = value;
         end
     end
     for operation, returnType in pairs(linkResult.overloads) do
         if SemanticState.declaredOperations[operation] then
-            addNewError('Overload "' .. operation .. '" found in imported file "' .. moduleName .. '" was already declared');
+            addNewError('Overload "' .. operation .. '" found in imported file "' .. moduleName .. '" was already declared', SemanticState);
         else
             SemanticState.declaredOperations[operation] = returnType;
+        end
+    end
+    for defType, _ in pairs(linkResult.defaults) do
+        if SemanticState.globalDefaults[defType] then
+            addNewError('Global default for "' .. defType .. '" found in imported file "' .. moduleName .. '" was already set', SemanticState);
+        else
+            
+            SemanticState.globalDefaults[defType] = true;
         end
     end
 end
@@ -601,6 +612,10 @@ local function declareClass(classDecNode, SemanticState)
     end
     SemanticState.declaredTypes[classDecNode.id] = {constructors = {}, fields = {}, inheritParams = {}, abstractMethods = {}, castTo = {}, static = {}, abstractCount = 0};
     if classDecNode.baseClassId then
+        if not SemanticState.declaredTypes[classDecNode.baseClassId] then
+            addNewError('Can not resolve base class ' .. classDecNode.baseClassId, SemanticState, classDecNode.line);
+            return;
+        end
         SemanticState.declaredTypes[classDecNode.id].fields = utils.deepCopy(SemanticState.declaredTypes[classDecNode.baseClassId].fields);
         SemanticState.declaredTypes[classDecNode.id].static = utils.deepCopy(SemanticState.declaredTypes[classDecNode.baseClassId].static);
         SemanticState.declaredTypes[classDecNode.id].castTo = {[classDecNode.baseClassId] = true;};
@@ -632,7 +647,12 @@ local function declareClass(classDecNode, SemanticState)
                 local abstracts = SemanticState.declaredTypes[classDecNode.id].abstractMethods;
                 SemanticState.declaredTypes[classDecNode.id].abstractCount = SemanticState.declaredTypes[classDecNode.id].abstractCount + 1;
                 classDecNode.isAbstract = true;
-                local abstractInfo = {type = 'member_function', returnType = stat.type, params = namelistToTypelist(stat.params.namelist or {})};;
+                local abstractInfo
+                if stat.isLogic then
+                    abstractInfo = {type = 'logic_member_function', returnType = stat.type, params = namelistToTypelist(stat.params.namelist or {}, SemanticState), isLogic = true };;
+                else
+                    abstractInfo = {type = 'member_function', returnType = stat.type, params = namelistToTypelist(stat.params.namelist or {}, SemanticState)};;
+                end
                 abstracts[stat.id] = abstractInfo;
                 SemanticState.declaredTypes[classDecNode.id].fields[stat.id] = abstractInfo;
             elseif classDecNode.baseClassId and SemanticState.declaredTypes[classDecNode.baseClassId].abstractMethods[stat.id] then
@@ -645,6 +665,8 @@ local function declareClass(classDecNode, SemanticState)
                     ((baseClass.abstractMethods[stat.id].returnType or 'any')
                     ==
                     ((stat.type or 'any')))
+                    and
+                    (stat.isLogic == baseClass.abstractMethods[stat.id].isLogic)
                 then
                     abstractsImplemented[stat.id] = true;
                     abstractsImplementedCount = abstractsImplementedCount + 1;
@@ -681,6 +703,8 @@ local function declareClass(classDecNode, SemanticState)
                             (baseClass.abstractMethods[stat.id].returnType or 'any')
                             ==
                             ((stat.body or {}).type or 'any')
+                        and
+                        (stat.isLogic == baseClass.abstractMethods[stat.id].isLogic)
                         then
                             if not stat.static then
                                 abstractsImplemented[stat.id] = true;
@@ -703,6 +727,8 @@ local function declareClass(classDecNode, SemanticState)
                             (baseClass.fields[stat.id].returnType or 'any')
                             ==
                             ((stat.body or {}).type or 'any'))
+                            and
+                            (stat.isLogic == baseClass.fields[stat.id].isLogic)
                             then
                                 addNewError('Overwritten function "' .. stat.id .. '" must respect the signature of the original', SemanticState, stat.line);
                             end
@@ -716,7 +742,7 @@ local function declareClass(classDecNode, SemanticState)
                     end
                 end
             end
-        elseif stat.node == NodeType.CLASS_FIELD_DELCARATION_NODE then
+        elseif stat.node == NodeType.CLASS_FIELD_DECLARATION_NODE then
             if not stat.right then stat.right = {node = NodeType.EXPLIST_NODE} end;
             for index, field in ipairs(stat.left) do
                 field.type = field.type or 'any';
@@ -724,8 +750,12 @@ local function declareClass(classDecNode, SemanticState)
                 if not SemanticState.declaredTypes[classDecNode.id].fields[field.id] and (not SemanticState.declaredTypes[classDecNode.id].static[field.id]) then
                     if stat.right and stat.right[index] then
                         validateAssignedType(field, stat.right[index], SemanticState);
-                        SemanticState.declaredTypes[classDecNode.id].fields[field.id] = {type = field.type};
-                    elseif field.type ~= 'any' and (not SemanticState.defaults[field.type]) then
+                        if not stat.static then
+                            SemanticState.declaredTypes[classDecNode.id].fields[field.id] = {type = field.type or 'any'};
+                        else
+                            SemanticState.declaredTypes[classDecNode.id].static[field.id] = {type = field.type or 'any'};
+                        end
+                    elseif field.type ~= 'any' and (not (SemanticState.defaults[field.type] or SemanticState.globalDefaults[field.type])) then
                         addNewError('No default value found for "' .. field.type .. '" ' .. 'in class "' .. classDecNode.id .. '"', SemanticState);
                     else
                         if field.type == 'any' then
@@ -765,7 +795,7 @@ local function checkDeclarationNode(currentNode, child, SemanticState)
             end
         end
         local right = child.right[index];
-        if (not right) and (not SemanticState.defaults[var.type]) then
+        if (not right) and (not (SemanticState.defaults[var.type] or SemanticState.globalDefaults[var.type])) then
             if var.type ~= 'any' then
                 addNewError('No default value found for "' .. var.type .. '"', SemanticState, child.line);
             else
@@ -787,7 +817,7 @@ local function checkAssignmentNode(assignment, SemanticState)
         local type = resolveVarType(var, SemanticState);
         local right = assignment.right[index];
         if (not right) and type ~= 'any' then
-            if not SemanticState.defaults[type] then
+            if not (SemanticState.defaults[type] or SemanticState.globalDefaults[type]) then
                 addNewError('No default value found for variable "' .. var.id .. '" of type "' .. type .. '"', SemanticState, assignment.line);
             end
         else
@@ -846,7 +876,8 @@ local function validateOverload(overload, SemanticState)
             addNewError('Cannot overload operator for type any', SemanticState, overload.line);
             return;
         end
-        if (not SemanticState.declaredTypes[value]) and (not basicTypes[value]) then
+        local flatType = getTypeAndDepth(value);
+        if (not SemanticState.declaredTypes[flatType]) and (not basicTypes[flatType]) then
             return;
         end
     end
@@ -970,13 +1001,21 @@ local function validateNodeValue(value, currentNode, key, SemanticState)
                 addNewError('Cannot resolve type "' .. value.type .. '"', SemanticState, value.line);
             end
             local assignedType = resolveExpType(value.exp, SemanticState);
-            if depth > 0 and assignedType == 'table' and value.exp.exp.value.node == NodeType.TABLE_CONSTRUCTOR_NODE or value.exp.exp.value.node == NodeType.EXP_WRAPPER_NODE then
+            if depth > 0 and assignedType == 'table' and type(value.exp.exp.value) == 'table' and (value.exp.exp.value.node == NodeType.TABLE_CONSTRUCTOR_NODE or value.exp.exp.value.node == NodeType.EXP_WRAPPER_NODE) then
                 validateTableType(value.exp.exp.value, flatType, depth - 1, SemanticState);
-                SemanticState.defaults[value.type] = true;
+                if value.isLocal then
+                    SemanticState.defaults[value.type] = true;
+                else
+                    SemanticState.globalDefaults[value.type] = true;
+                end
             elseif value.type ~= assignedType then
                 addNewError('Cannot set default of type "' .. value.type .. '" to an expression of type ' .. assignedType, SemanticState, value.line);
             else
-                SemanticState.defaults[value.type] = true;
+                if value.isLocal then
+                    SemanticState.defaults[value.type] = true;
+                else
+                    SemanticState.globalDefaults[value.type] = true;
+                end
             end
         end
 
@@ -1011,6 +1050,9 @@ local function validateNodeValue(value, currentNode, key, SemanticState)
             local varType = resolveVarType(value.var, SemanticState);
             if varType == 'logic_member_function' or varType == 'logic_function' then
                 SemanticState.logicAliasses[value.alias] = {var = value.var};
+                if varType == 'logic_member_function' then
+                    SemanticState.logicAliasses[value.alias].shouldBeSelf = true;
+                end
             else
                 addNewError('Expected import of logic function, got ' .. varType .. ' instead', SemanticState, value.line)
             end
@@ -1139,6 +1181,7 @@ function Semantic.check(ast, filepath, exportedType)
         ['function'] = true;
         ['thread'] = true;
     };
+    SemanticState.globalDefaults = {}
 
     if ast == nil then
         return;
@@ -1150,15 +1193,18 @@ function Semantic.check(ast, filepath, exportedType)
     end
 
     if #SemanticState.errors > 0 then
-        print(#SemanticState.errors .. ' semantic errors');
-        print(filepath .. ': ' .. utils.dump(SemanticState.errors)); 
+        print(#SemanticState.errors .. ' semantic errors in ' .. filepath .. ':');
+        for index, error in ipairs(SemanticState.errors) do
+            utils.dump_print('-' .. error);
+        end
     end
     if #SemanticState.errors > 0 then
         return nil;
     else
         return {
             types = SemanticState.declaredTypes,
-            overloads = SemanticState.declaredOperations
+            overloads = SemanticState.declaredOperations,
+            defaults = SemanticState.globalDefaults
         }
     end
 end

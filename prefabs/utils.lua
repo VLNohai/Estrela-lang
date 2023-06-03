@@ -90,42 +90,35 @@ function utils.homogeouns_array(map, maxn)
     return array;
 end
 
-function utils.deepCopy(orig, target, copies, visited, withoutStatic)
-    copies = copies or {}
-    visited = visited or {}
-    local orig_type = type(orig)
-    local copy
+function utils.deepCopy(originalTable, targetTable, _copyCache, skipStatic)
+    targetTable = targetTable or {}
+    _copyCache = _copyCache or {}
+    skipStatic = skipStatic or false
 
-    if orig_type == 'table' then
-        if copies[orig] then
-            copy = copies[orig]
+    for key, value in pairs(originalTable) do
+        if type(value) == "table" then
+            if _copyCache[value] then
+                targetTable[key] = _copyCache[value]
+            else
+                local newTable = {}
+                _copyCache[value] = newTable
+                targetTable[key] = utils.deepCopy(value, newTable, _copyCache, skipStatic)
+            end
         else
-            copy = target or {}
-            copies[orig] = copy
-            visited[copy] = true
-            for orig_key, orig_value in next, orig, nil do
-                if orig_key ~= 'static' or (not withoutStatic) then
-                    if copy[orig_key] == nil then
-                        local orig_key_copy = utils.deepCopy(orig_key, nil, copies, visited)
-                        local orig_value_copy = utils.deepCopy(orig_value, nil, copies, visited)
-                        copy[orig_key_copy] = orig_value_copy
-                    end
+            if not (skipStatic and key == "static") then
+                if targetTable[key] == nil then
+                    targetTable[key] = value
                 end
             end
-            local orig_metatable = getmetatable(orig)
-            if orig_metatable and not visited[orig_metatable] then
-                local metatable_copy = utils.deepCopy(orig_metatable, nil, copies, visited)
-                setmetatable(copy, metatable_copy)
-            end
         end
-    else
-        copy = orig
     end
-    return copy
+
+    return targetTable
 end
 
-function utils.deepCopyWithoutStatic(orig, target, copies, visited)
-    return utils.deepCopy(orig, target, copies, visited, true);
+
+function utils.deepCopyWithoutStatic(orig, target)
+    return utils.deepCopy(orig, target, visited, true);
 end
 
 return utils;

@@ -32,7 +32,7 @@ local is_block_unique = false;
 
 local function writeFunction(is_local, name, args, body_as_string, memberOf)
     local code = '';
-    if not memberOf then memberOf = '' else memberOf = memberOf .. '.' end;
+    if not memberOf then memberOf = '' else memberOf = memberOf .. ':' end;
     if is_local then
         code = code .. 'local ';
     end
@@ -205,9 +205,15 @@ local function handleLogicStats(stats, containing_func_args)
                 stat.id = generateVar(stat.replaceWith);
             end
             if stat.is_inbuilt then
+                if stat.shouldBeSelf then
+                    stat.id = stat.id:gsub("(.*)%.(.*)", "%1:%2");
+                end
                 code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') ' ..  invalidate_stat;
             else
                 if is_block_unique then
+                    if stat.shouldBeSelf then
+                        stat.id = stat.id:gsub("(.*)%.(.*)", "%1:%2");
+                    end
                     if stat.modifier == 'not' then
                         code = code .. 'local _logic_bindings_temp = _logic_bindings_\n';
                         code = code .. 'if _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
@@ -216,10 +222,14 @@ local function handleLogicStats(stats, containing_func_args)
                         code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
                     end
                 else
+                    local selfArg = ''
+                    if stat.shouldBeSelf then
+                        selfArg = stat.id:match("^(.-)%.([^%.]*)$") .. ',';
+                    end
                     if stat.modifier == 'not' then
                         code = code .. 'local _logic_co_temp = coroutine.create(' .. stat.id .. ');\n';
                         code = code .. 'local _logic_bindings_temp = _dep_utils.deepCopy(_logic_bindings_' .. bind_depth .. ');\n'
-                        code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_temp, ' .. resolveFuncArgs(stat.args, true)  .. ')\n';
+                        code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_temp, ' .. selfArg .. resolveFuncArgs(stat.args, true)  .. ')\n';
                         code = code .. 'if _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
                         code = code .. '_logic_bindings_' .. bind_depth .. ' = _logic_bindings_temp;\n';
                     else
@@ -227,7 +237,7 @@ local function handleLogicStats(stats, containing_func_args)
                         code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
                         code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
                         code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
-                        code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. resolveFuncArgs(stat.args, true)  .. ')\n';
+                        code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. selfArg .. resolveFuncArgs(stat.args, true)  .. ')\n';
                         code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
                     end
                 end
@@ -289,11 +299,7 @@ local function generateCall(call)
         if call.node == NodeType.CALL_NODE then
             code = code .. generateArgs(call.args);
         elseif call.node == NodeType.SELF_CALL_NODE then
-            if not call.switchToPoint then
-                code = code .. ':' .. code .. call.id .. generateArgs(call.args);
-            else
-                code = code .. '.' .. code .. call.id .. generateArgs(call.args);
-            end
+            code = code .. ':' .. code .. call.id .. generateArgs(call.args);
         end
     end
     return code;
@@ -347,14 +353,17 @@ end
 
 generateVar = function(var, isValue)
     local code = '';
+    local thisCode = '';
     if var.isThis then
-        code = currentThisIndex .. code;
+        thisCode = currentThisIndex;
     end
     if var.id then
+        code = code .. thisCode;
         code = code .. var.id;
     else
         local tempCode, checks = generateSuffix(var.suffix, isValue);
         if isValue then code = code .. generateNilSafeChecks(checks) end;
+        code = code .. thisCode;
         code = code .. generatePrefix(var);
         code = code .. tempCode;
         code = code .. generateCall(var.call);
@@ -403,6 +412,8 @@ local function generateValue(value)
     local code = '';
     if value.valType == 'var' then
         return generateVar(value.value, true);
+    elseif value.node == NodeType.UNOP_EXP_NODE then
+        return code .. value.op.value .. ' ' .. generateValue(value.value);
     elseif value.node == NodeType.CAST_NODE or value.node == NodeType.CAST_CHECK_NODE then
         if not value.safety then
             return generateExp(value.exp);
@@ -448,7 +459,7 @@ generateExp = function(exp)
                 code = code .. ' ' .. exp.op.binop.value .. ' ' .. generateExp(exp.op.term);
             else
                 code = exp.op.value .. ' ' .. code;
-            end 
+            end
         end
     elseif exp.node == NodeType.LAMBDA_FUNC_NODE then
         return generateLambdaFunc(exp.body);
@@ -597,15 +608,16 @@ local function generateInstantiationFunc(classDeclaration)
     code = code .. 'setmetatable(new, getmetatable(self))\n';
     code = code .. 'new.constructor[constructor](new, ...);';
     code = code .. 'new.constructor = nil;\n';
-    code = code ..  'return new\n';
+    code = code .. 'new.new = nil;\n';
+    code = code .. 'return new\n';
     code = code .. 'end;\n';
     return code;
 end
 
 local function inheritInConstructor(baseId, baseArgs, ihtCstIndex)
     local code = '';
-    code = code .. 'self = _dep_utils.deepCopy(' .. baseId .. ', self)\n';
-    code = code .. baseId .. '.constructor[' .. ihtCstIndex .. ']' .. '(self'; 
+    code = code .. 'self = _dep_utils.deepCopyWithoutStatic(' .. baseId .. ', self)\n';
+    code = code .. baseId .. '.constructor[' .. ihtCstIndex .. ']' .. '(self';
     if #baseArgs > 0 then
         code = code .. ',' .. generateNamelist(baseArgs);
     end
@@ -625,8 +637,7 @@ local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
             end
             code = code .. ')\n';
             if baseId then
-                local baseArgs = generateNamelist(baseArgs);
-                if baseArgs ~= '' then
+                if #baseArgs > 0 then
                     code = code .. 'local ' .. generateNamelist(baseArgs) .. ';\n';
                 end
             end
@@ -638,7 +649,7 @@ local function generateClassStats(classId, stats, baseId, baseArgs, ihtCstIndex)
         elseif stat.node == NodeType.LOGIC_BLOCK_NODE then
             stat.isLocal = false;
             code = code .. generateLogicBlock(stat, classId);
-        elseif stat.node == NodeType.CLASS_FIELD_DELCARATION_NODE then
+        elseif stat.node == NodeType.CLASS_FIELD_DECLARATION_NODE then
             code = code .. generateNamelist(stat.left, classId);
             code = code .. ' = ';
             if stat.right then
@@ -674,7 +685,7 @@ local function saveTypesToCastFile(declaredTypes)
     local code = 'local types = {\n';
     for classId, classInfo in pairs(declaredTypes) do
         code = code .. '["' .. classId .. '"]' .. ' = {\n'; 
-        for name, value in pairs(classInfo.fields) do
+        for name, value in pairs(classInfo.castTo) do
             code = code .. '["' .. name .. '"] = true;\n';
         end
         code = code .. '};\n'
@@ -756,9 +767,9 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
 
     statRouter[NodeType.FOR_CONTOR_LOOP_NODE] = function (forStat)
         local code =  'for ' .. forStat.contorName .. '=' .. generateExp(forStat.contorValue)
-        .. ', ' .. generateExp(forStat.stopValue) .. ', ';
+        .. ', ' .. generateExp(forStat.stopValue);
         if forStat.increment then
-            code = code .. generateExp(forStat.increment);
+            code = code .. ', ' .. generateExp(forStat.increment);
         end
         code = code .. ' do\n' .. generateBlock(forStat.block) .. 'end';
         return code;
@@ -841,12 +852,6 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
         code = code .. '_overload_meta.typename = "' .. classDeclaration.id .. '";\n'
         code = code .. 'setmetatable(' .. classDeclaration.id .. ',_overload_meta);\n';
         code = code .. classDeclaration.id .. '.' .. 'constructor = {};\n';
-        
-        code = code .. classDeclaration.id .. '.public = {';
-        for key, _ in pairs(classDeclaration.fields or {}) do
-            code = code .. '["' .. key .. '"] = true;';
-        end
-        code = code .. '};\n';
 
         if not classDeclaration.isAbstract then
             code = code .. generateInstantiationFunc(classDeclaration);

@@ -155,5 +155,16 @@ function utils.escapeQuotes(s)
     return (s:gsub('[\'"]', '\\%0'))
 end
 
+function utils.getTypeAndDepth(varType)
+    if not varType then return 'any', 0 end;
+    local separatorIndex = string.find(varType, "|");
+    if separatorIndex == nil then
+        return varType, 0;
+    end
+    local str = string.sub(varType, 1, separatorIndex - 1)
+    local num = tonumber(string.sub(varType, separatorIndex + 1))
+    return str, num;
+end
+
 
 return utils;

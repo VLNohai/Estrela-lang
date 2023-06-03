@@ -10,6 +10,8 @@ INDEX = 1;
 
 MAX_INDEX = -1;
 
+local fileName;
+
 local basicTypes = {
     ['nil'] = true, 
     ['boolean'] = true, 
@@ -264,7 +266,7 @@ function NODE.CHUNK()
         if #LEXEMS == 0 then
             return {stats = {}, retstat = {}};
         end
-        print('syntax error!');
+        print('syntax error in file "' .. fileName .. '"');
         print('error at line ' .. LEXEMS[MAX_INDEX].line .. ', column: ' .. LEXEMS[MAX_INDEX].column);
     end
 end
@@ -308,7 +310,7 @@ function NODE.STAT()
 
     local matchedValues = {val = nil};
     if SET(matchedValues, MATCH(NODE.FUNCTIONCALL)) then
-        return {node = NodeType.FUNCTION_CALL_NODE, call = matchedValues.val.call, prefix = matchedValues.val.prefix, suffix = matchedValues.val.suffix};
+        return {node = NodeType.FUNCTION_CALL_NODE, call = matchedValues.val.call, prefix = matchedValues.val.prefix, suffix = matchedValues.val.suffix, isThis = matchedValues.val.isThis};
     end
     INDEX = indexCpy;
 
@@ -557,34 +559,36 @@ function NODE.CLASSSTAT()
     local matchedId = {val = nil};
     local matchedParams = {val = nil};
     local matchedType = {val = nil};
-    if MATCH(TokenType.ABSTRACT_KEYWORD) and SET(matchedId, MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK)) and
+    local isLogic = {val = nil};
+    if MATCH(TokenType.ABSTRACT_KEYWORD) and SET(isLogic, OPTIONAL(INDEX, TokenType.LOGIC_KEYWORD)) and SET(matchedId, MATCH(TokenType.IDENTIFIER, TokenType.LEFT_PARAN_MARK)) and
     SET(matchedParams, OPTIONAL(INDEX, NODE.PARLIST)) and MATCH(TokenType.RIGHT_PARAN_MARK) and SET(matchedType, OPTIONAL(INDEX, TokenType.ARROW_OPERATOR, NODE.TYPE)) then
         local type = nil;
+        local logic = nil;
         if matchedType.val[2] then
             type = utils.fromTypeNodeToString(matchedType.val[2]);
+        end
+        if isLogic.val.value then
+            logic = true;
         end
         return { node = NodeType.ABSTRACT_METHOD_NODE, 
                 params = matchedParams.val, 
                 id = matchedId.val[1].value; 
                 type = type,
                 line = matchedId.val[1].line;
+                isLogic = logic;
             };
     end
     INDEX = indexCpy;
 
     local nameList = {val = nil};
     local expList = {val = nil};
-    local staticMod = {val = nil};
-    if SET(staticMod, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and  
+    local matchedStatic = {val = nil};
+    if SET(matchedStatic, OPTIONAL(INDEX, TokenType.STATIC_KEYWORD)) and  
     SET(nameList, MATCH(NODE.NAMELIST)) and 
     SET(expList, OPTIONAL(INDEX, TokenType.ASSIGN_OPERATOR, NODE.EXPLIST)) then
-        local static = nil;
-        if staticMod.val.value then
-            static = true;
-        end
         return {
-            node = NodeType.CLASS_FIELD_DELCARATION_NODE,
-            static = static,
+            node = NodeType.CLASS_FIELD_DECLARATION_NODE,
+            static = matchedStatic.val.value,
             left = nameList.val,
             right = expList.val[2]
         };
@@ -618,7 +622,9 @@ function NODE.CLASSSTAT()
                 args =  matchedNames.val or {}, 
                 funcs = matchedFunctions.val, 
                 static = static, 
-                line = matchedID.val.line};
+                line = matchedID.val.line,
+                isLogic = true;
+            };
     end
     INDEX = indexCpy;
 
@@ -873,11 +879,6 @@ function NODE.EXP()
     end
     INDEX = indexCpy;
 
-    if SET(matchedExp, MATCH(NODE.UNOP, NODE.EXP)) then
-        return {node = NodeType.EVALUABLE_NODE, exp = matchedExp.val[2].exp, op = matchedExp.val[1]};
-    end
-    INDEX = indexCpy;
-
     local matchedOp = {val = nil};
     if SET(matchedExp, MATCH(NODE.VALUE)) and SET(matchedOp, OPTIONAL(INDEX, NODE.BINOP, NODE.EXP)) then
         local op = nil;
@@ -933,6 +934,11 @@ function NODE.VALUE()
     
     if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.EXP, TokenType.RIGHT_PARAN_MARK)) then
         return {node = NodeType.PARAN_EXP_NODE, exp = matchedValue.val[2]};
+    end
+    INDEX = indexCpy;
+
+    if SET(matchedValue, MATCH(NODE.UNOP, NODE.VALUE)) then
+        return {node = NodeType.UNOP_EXP_NODE, value = matchedValue.val[2], op = matchedValue.val[1]};
     end
     INDEX = indexCpy;
 
@@ -1032,7 +1038,7 @@ function NODE.FUNCTIONCALL()
     SET(matchedSuffixList, OPTIONAL_MULTIPLE_LEAVE_LAST(INDEX, NODE.SUFFIX)) and 
     SET(matchedCall, MATCH(NODE.CALL)) then
         local this = nil;
-        if #isThis.val > 0 then
+        if isThis.val[1] then
             this = true;
         end
         return {
@@ -1487,7 +1493,8 @@ function NODE.LOGIC_BINOP()
     end
 end
 
-function Parser.parse(lexems)
+function Parser.parse(lexems, filename)
+    fileName = filename;
     LEXEMS = lexems;
     INDEX = 1;
     return NODE.CHUNK();

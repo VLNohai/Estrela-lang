@@ -1,6 +1,7 @@
 local TokenType = require('tokens').TokenType;
 local mapTokensToFields = {
     [TokenType.UNARY_MINUS_OPERATOR] = "__unm";
+    [TokenType.HASH_OPERATOR] = '__len ';
     [TokenType.PLUS_OPERATOR] = "__add";
     [TokenType.MINUS_OPERATOR] = "__sub";
     [TokenType.STAR_OPERATOR] = "__mul";

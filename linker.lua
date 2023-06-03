@@ -27,7 +27,7 @@ function linker.linkElaFile(path)
     end
     local Lexems = Lexer.lex(path);
     if Lexems then
-        local AST, exportedType = Parser.parse(Lexems);
+        local AST, exportedType = Parser.parse(Lexems, filename);
         if AST then
             local linkResult = Semantic.check(AST, path, exportedType);
             if linkResult then
