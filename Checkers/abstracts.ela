@@ -1,0 +1,57 @@
+default for number is 0;
+local default for number is -1;
+
+class Pair as
+    first @number, second @number;
+    constructor(first @number, second @number)
+        this.first = first;
+        this.second = second;
+    end
+end
+
+operator==(pair1 @Pair, pair2 @Pair)
+    return ((pair1.first == pair2.first) and (pair1.second == pair2.second));
+end
+
+class Drawable as
+    constructor() end;
+    abstract draw();
+end
+
+class Math2D as
+    static screenHeight @number = 720;
+    static screenWidth @number = 960;
+    static tableHeight @number = 680;
+    static tableWidth @number = 680;
+    static pieceRadius @number = 35;
+    static getOffsetToCenterHorizontally(width @number) -> number
+        return (Math2D.screenWidth - width)/2;
+    end
+    static getOffsetToCenterVertically(height @number) -> number
+        return (Math2D.screenHeight - height)/2;
+    end
+    static getSquareCorner(x @number, y @number) -> Pair
+        local squareLeftCornerX @number = Math2D:getOffsetToCenterHorizontally(Math2D.tableWidth) + ((Math2D.tableWidth / 8) * (x - 1));
+        local squareLeftCornerY @number = Math2D:getOffsetToCenterVertically(Math2D.tableHeight) + ((Math2D.tableHeight / 8) * (y - 1));
+        return new Pair(squareLeftCornerX, squareLeftCornerY);
+    end
+    static getSquareCenter(x @number, y @number) -> Pair
+        local corner @Pair = Math2D:getSquareCorner(x, y);
+        local centerX @number = corner.first + Math2D.tableWidth/16;
+        local centerY @number = corner.second + Math2D.tableHeight/16;
+        return new Pair(centerX, centerY);
+    end
+    static getSquareCoordinates(x @number, y @number) -> Pair
+        local tableX @ number = (Math2D.screenWidth - Math2D.tableWidth) / 2
+        local tableY @ number = (Math2D.screenHeight - Math2D.tableHeight) / 2
+
+        if (x < tableX) or (x > (tableX + Math2D.tableWidth)) or (y < tableY) or (y > (tableY + Math2D.tableHeight)) then
+            return (new Pair(-1, -1));
+        end
+        local squareSize @number = Math2D.tableWidth / 8;
+        local squareX @number = ((math.floor((x - tableX) / squareSize) + 1) as number);
+        local squareY @number = ((math.floor((y - tableY) / squareSize) + 1) as number);
+
+        return new Pair(squareX, squareY);
+    end
+end

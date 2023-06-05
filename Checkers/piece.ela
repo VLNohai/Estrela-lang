@@ -1,0 +1,202 @@
+requireELA('abstracts');
+requireELA('color');
+requireELA('prologBasics');
+
+class Piece : Drawable() as
+    x @number, y @number;
+    color @Color = (new Beige() as Color);
+    constructor() end;
+    constructor(posX @number, posY @number) 
+        this.x = posX;
+        this.y = posY;
+    end;
+    abstract draw();
+
+    abstract logic EnemyColor(color);
+    abstract logic DirectionByColor(x, y, newx, newy);
+
+    static logic unique FreeSquare(table, x, y)
+        Prolog.getXY as getXY;
+        (table, x, y)
+            getXY(table, x, y, rez);
+            rez == 0;
+        end
+    end
+
+    static logic unique InBounds(x, y)
+        (x, y)
+            x >= 1;
+            x <= 8;
+            y >= 1;
+            y <= 8;
+        end
+    end
+
+    static logic unique GetInBetween(table, x1, y1, x2, y2, rez)
+        Prolog.getXY as getXY;
+        (table, x1, y1, x2, y2, rez)
+            midx -> (x1 + x2) / 2;
+            midy -> (y1 + y2) / 2;
+            getXY(table, midx, midy, rez);
+        end
+    end
+
+    static logic Jump(x, y, newx, newy)
+        (x, y, newx, newy) newx -> x + 2; newy -> y + 2 end;
+        (x, y, newx, newy) newx -> x + 2; newy -> y - 2 end;
+        (x, y, newx, newy) newx -> x - 2; newy -> y + 2 end;
+        (x, y, newx, newy) newx -> x - 2; newy -> y - 2 end;
+    end
+
+    static logic Move(x, y, newx, newy)
+        (x, y, newx, newy) newx -> x + 1; newy -> y + 1 end;
+        (x, y, newx, newy) newx -> x + 1; newy -> y - 1 end;
+        (x, y, newx, newy) newx -> x - 1; newy -> y + 1 end;
+        (x, y, newx, newy) newx -> x - 1; newy -> y - 1 end;
+    end
+    
+    static logic Visited(x, y, visited)
+        Piece.Visited as Visited;
+        Prolog.equalPair as equalPair;
+        (x, y, {{x, y}|t}) end;
+        (x, y, {{a, b}|t})
+            not(equalPair({x, y}, {a, b}));
+            Visited(x, y, t);
+        end
+    end
+
+    static logic TurnHelper(table, x, y, newx, newy, road, visited, index)
+        Piece.InBounds as InBounds;
+        Piece.FreeSquare as FreeSquare;
+        Piece.Move as Move;
+        Piece.Jump as Jump;
+        Piece.TurnHelper as TurnHelper;
+        Piece.GetInBetween as GetInBetween;
+        Piece.Visited as Visited;
+        this.EnemyColor as EnemyColor;
+        this.DirectionByColor as DirectionByColor;
+        (table, x, y, newx, newy, road, visited, index)
+            index == 1;
+            Move(x, y, newx, newy);
+            DirectionByColor(x, y, newx, newy);
+            InBounds(newx, newy);
+            FreeSquare(table, newx, newy);
+            road = {{newx, newy}};
+        end
+        (table, x, y, newx, newy, road, visited, index)
+            Jump(x, y, newx, newy);
+            DirectionByColor(x, y, newx, newy);
+            InBounds(newx, newy);
+            FreeSquare(table, newx, newy);
+            not(Visited(newx, newy, visited));
+            GetInBetween(table, x, y, newx, newy, color);
+            road = {{newx, newy}};
+            EnemyColor(color);
+        end
+        (table, x, y, newx, newy, road, visited, index)
+            newVisited = {{x, y}|visited};
+            Jump(x, y, mid_newx, mid_newy);
+            not(Visited(mid_newx, mid_newy, visited));
+            DirectionByColor(x, y, mid_newx, mid_newy);
+            InBounds(mid_newx, mid_newy);
+            FreeSquare(table, mid_newx, mid_newy);
+            GetInBetween(table, x, y, mid_newx, mid_newy, color);
+            EnemyColor(color);
+            newIndex -> index + 1;
+            TurnHelper(table, mid_newx, mid_newy, newx, newy, road_rec, newVisited, newIndex);
+            road = {{mid_newx, mid_newy}|road_rec};
+       end
+    end
+
+    logic Turn(table, x, y, newx, newy, road)
+        Piece.TurnHelper as TurnHelper;
+        (table, x, y, newx, newy, road)
+            TurnHelper(table, x, y, newx, newy, road, {}, 1);
+        end
+    end
+end
+
+class RedPiece : Piece(posX @number, posY @number) as
+    constructor(x @number, y @number);
+        posX = x;
+        posY = y;
+        this.color = (new Red() as Color);
+    end
+    draw()
+        local pair @Pair = Math2D:getSquareCenter(this.x, this.y);
+        Color:setColorELA(this.color);
+        love.graphics.circle('fill', pair.first, pair.second, Math2D.pieceRadius);
+    end;
+    logic DirectionByColor(x, y, newx, newy)
+        (x, y, newx, newy)
+            newy < y;
+        end
+    end
+    logic unique EnemyColor(color) 
+        (color)
+            color == 1;
+        end
+    end;
+end
+
+class BlackPiece : Piece(posX @number, posY @number) as
+    constructor(x @number, y @number);
+        posX = x;
+        posY = y;
+        this.color =  (new Black() as Color);
+    end
+    draw()
+        local pair @Pair = Math2D:getSquareCenter(this.x, this.y);
+        Color:setColorELA(this.color);
+        love.graphics.circle('fill', pair.first, pair.second, Math2D.pieceRadius);
+    end;
+    logic DirectionByColor(x, y, newx, newy)
+        (x, y, newx, newy)
+            newy > y;
+        end
+    end
+    logic unique EnemyColor(color) 
+        (color)
+            color == 2;
+        end
+    end;
+end
+
+class CrownPiece : Piece(posX @number, posY @number) as
+    constructor(piece @Piece)
+        this.color = piece.color;
+        posX = piece.x;
+        posY = piece.y;
+    end
+    draw()
+        local pair @Pair = Math2D:getSquareCenter(this.x, this.y);
+        Color:setColorELA(this.color);
+        love.graphics.circle('fill', pair.first, pair.second, Math2D.pieceRadius);
+        Color:setColorELA((new Gold() as Color));
+        love.graphics.circle('fill', pair.first, pair.second, Math2D.pieceRadius - 10);
+    end
+    logic unique DirectionByColor(x, y, newx, newy)
+        (x, y, newx, newy) end;
+    end
+    logic unique EnemyColor(color)
+        (color)
+            color ~= 0;
+        end;
+    end
+end
+
+class BlankPiece : Piece(posX @number, posY @number) as
+    constructor()
+        posX = -1;
+        posY = -1;
+    end
+    draw() end;
+    logic unique DirectionByColor(x, y, newx, newy) end;
+    logic unique EnemyColor(color) end;
+end
+
+class DragAndDrop as
+    static originalPosition @Pair = new Pair(-1, -1);
+    static currentPosition @Pair = new Pair(-1, -1);
+    static selectedPiece @Piece = (new BlankPiece() as Piece);
+end

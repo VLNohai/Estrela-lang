@@ -1,0 +1,30 @@
+class Prolog as
+    static logic unique getnhelp(index, table, n, rez)
+        Prolog.getnhelp as getnhelp
+        (n, {h|t}, n, h) end;
+        (index, {h|t}, n, rez)
+            index < n;
+            new_index -> index + 1;
+            getnhelp(new_index, t, n, rez);
+        end
+    end
+
+    static logic unique getn(table, n, rez)
+        Prolog.getnhelp as help
+        (table, n, rez)
+            help(1, table, n, rez);
+        end
+    end
+
+    static logic unique getXY(table, x, y, rez)
+        Prolog.getn as getn;
+        (table, x, y, rez)
+            getn(table, y, rez_rec);
+            getn(rez_rec, x, rez);
+        end
+    end
+
+    static logic unique equalPair(a, b)
+        ({x, y}, {x, y}) end;
+    end
+end

@@ -1,0 +1,98 @@
+requireELA('piece');
+
+local default for Piece is (new BlankPiece() as Piece);
+class PieceMatrix as
+    fields @{{Piece}} = {};
+    constructor() 
+        for i=1, 8, 1 do
+            this.fields[i] = {};
+        end
+    end;
+
+    get(x @number, y @number) -> Piece
+        local piece @Piece = this.fields[y][x];
+        return piece;
+    end
+
+    set(x @number, y @number, piece @Piece)
+        piece.x = x;
+        piece.y = y;
+        this.fields[y][x] = piece;
+    end
+    
+    free(x @number, y @number)
+        this.fields[y][x] = nil;
+    end
+end
+
+class Board : Drawable() as
+    pieces @PieceMatrix = new PieceMatrix();
+    constructor() end;
+    convertToNumbers() -> {{number}}
+        local result @{{number}} = {{}, {}, {}, {}, {}, {}, {}, {}};
+        for j=1, 8, 1 do
+            for i=1, 8, 1 do
+                local targetPiece @Piece = this.pieces:get((i as number), (j as number));
+                if (targetPiece.color is Red) then
+                    result[j][i] = 2;
+                elseif (targetPiece.color is Black) then
+                    result[j][i] = 1;
+                else
+                    result[j][i] = 0;
+                end
+            end
+        end
+        return result;
+    end
+
+    draw()
+        for j=1, 8, 1 do
+            for i=1, 8, 1 do
+                if (i + j) % 2 == 0 then
+                    Color:setColorELA((new Beige() as Color));
+                else
+                    Color:setColorELA((new Brown() as Color));
+                end
+                local leftCorner @Pair = Math2D:getSquareCorner((i as number), (j as number));
+                love.graphics.rectangle('fill', leftCorner.first, leftCorner.second, Math2D.tableWidth / 8, Math2D.tableHeight / 8);
+            end
+        end
+        for j=1, 8, 1 do
+            for i=1, 8, 1 do
+                local currentPiece = this.pieces:get((i as number), (j as number));
+                currentPiece:draw();
+            end
+        end
+    end;
+end
+
+operator-(board @Board) -> Pair
+    local reds @number = 0;
+    local blacks @number = 0;
+    for j=1, 8, 1 do
+        for i=1, 8, 1 do
+            local targetPiece @Piece = board.pieces:get((i as number), (j as number));
+            if (targetPiece.color is Red) then
+                reds = reds + 1;
+            elseif (targetPiece.color is Black) then
+                blacks = blacks + 1;
+            end
+        end
+    end
+    return new Pair(reds, blacks);
+end
+
+operator+(board @Board, piece @BlackPiece) -> Board;
+    board.pieces:set(piece.x, piece.y, (piece as Piece));
+    return board;
+end
+
+operator+(board @Board, piece @RedPiece) -> Board;
+    board.pieces:set(piece.x, piece.y, (piece as Piece));
+    return board;
+end
+
+operator+(board @Board, piece @CrownPiece) -> Board;
+    board.pieces:set(piece.x, piece.y, (piece as Piece));
+    return board;
+end
