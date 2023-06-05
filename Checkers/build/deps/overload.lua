@@ -39,6 +39,7 @@ local metatable = {
     __div = fieldDecision("__div");
     __mod = fieldDecision("__mod");
     __pow = fieldDecision("__pow");
+    __eq = fieldDecision("__eq");
     __concat = fieldDecision("__concat");
 }
 

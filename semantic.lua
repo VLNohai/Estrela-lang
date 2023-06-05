@@ -14,6 +14,7 @@ local inbuildOperations = {
     ['string' .. ':' .. TokenType.DOUBLE_POINT_MARK .. ':' .. 'number'] = 'string',
     ['string' .. ':' .. TokenType.DOUBLE_POINT_MARK .. ':' .. 'string'] = 'string',
     ['number' .. ':' .. TokenType.EQUALS_OPERATOR .. ':' .. 'number'] = 'boolean',
+    ['boolean' .. ':' .. TokenType.AND_KEYWORD .. ':' .. 'boolean'] = 'boolean',
     [TokenType.HASH_OPERATOR .. ':' .. 'table'] = 'number';
     [TokenType.HASH_OPERATOR .. ':' .. 'string'] = 'number';
     [TokenType.UNARY_MINUS_OPERATOR .. ':' .. 'number'] = 'number';
@@ -106,7 +107,12 @@ local function operationType(termOneType, op, termTwoType, SemanticState)
     if depth > 0 then termOneType = 'table'; end;
     local _, depth = getTypeAndDepth(termTwoType);
     if depth > 0 then termTwoType = 'table'; end;
-
+    if inbuildOperations[termOneType .. ':' .. op .. ':' .. termTwoType] then
+        return inbuildOperations[termOneType .. ':' .. op .. ':' .. termTwoType];
+    end
+    if SemanticState.declaredOperations[termOneType .. ':' .. op .. ':' .. termTwoType] then
+        return SemanticState.declaredOperations[termOneType .. ':' .. op .. ':' .. termTwoType];
+    end
     if op == TokenType.OR_KEYWORD then
         if termOneType == termTwoType or termOneType == 'nil' or termTwoType == 'nil' then
             return termOneType;
@@ -122,12 +128,6 @@ local function operationType(termOneType, op, termTwoType, SemanticState)
     op == TokenType.LESS_OPERATOR or
     op == TokenType.LESS_OR_EQUAL_OPERATOR then
         return 'boolean'
-    end
-    if inbuildOperations[termOneType .. ':' .. op .. ':' .. termTwoType] then
-        return inbuildOperations[termOneType .. ':' .. op .. ':' .. termTwoType];
-    end
-    if SemanticState.declaredOperations[termOneType .. ':' .. op .. ':' .. termTwoType] then
-        return SemanticState.declaredOperations[termOneType .. ':' .. op .. ':' .. termTwoType];
     end
     addNewError('invalid operation between types "' .. termOneType .. '" and "' .. termTwoType .. '"', SemanticState);
     return 'any';
@@ -284,6 +284,8 @@ local function recursivePolish(exp, stack, SemanticState)
         local resultedType = inbuildOperations[key] or SemanticState.declaredOperations[key];
         if resultedType then
             exp.exp.type = resultedType;
+        elseif firstType == 'any' then
+            resultedType = 'any';
         else
             addNewError('Unary operator "' .. exp.exp.op.value .. '" not defined for type ' .. firstType, SemanticState);
         end
@@ -361,8 +363,15 @@ local function resolveIndexType(type, suffix, prefixId, SemanticState)
                     if type == 'member_function' or type == 'static_function' or type == 'logic_member_function' then
                         if type == 'member_function' or type == 'logic_member_function' then
                             local functype = type;
-                            type = SemanticState.declaredTypes[lastType].fields[lastId].returnType or 'any';
-                            validateFunctionCall(SemanticState.declaredTypes[lastType].fields[lastId].params, suff.args, SemanticState)
+                            local params = nil;
+                            if SemanticState.declaredTypes[lastType].fields[lastId] then
+                                type = SemanticState.declaredTypes[lastType].fields[lastId].returnType or 'any';
+                                params = SemanticState.declaredTypes[lastType].fields[lastId].params;
+                            else
+                                type = SemanticState.declaredTypes[lastType].static[lastId].returnType or 'any';
+                                params = SemanticState.declaredTypes[lastType].static[lastId].params;
+                            end
+                            validateFunctionCall(params, suff.args, SemanticState)
                         else
                             type = SemanticState.declaredTypes[lastType].static[lastId].returnType or 'any';
                             validateFunctionCall(SemanticState.declaredTypes[lastType].static[lastId].params, suff.args, SemanticState)
@@ -544,7 +553,7 @@ resolveVarType = function(var, SemanticState)
     end
     if var.suffix then
         local prefixType, depth = getTypeAndDepth(type);
-        if type ~= 'table' and type ~= 'any' and (not SemanticState.declaredTypes[type]) and type ~= 'function' and type ~= 'logic_function' and depth == 0 and (not getClassName(type)) then
+        if type ~= 'table' and type ~= 'any' and (not SemanticState.declaredTypes[type]) and type ~= 'function' and type ~= 'logic_function' and type ~='member_function' and type ~= 'logic_member_function' and depth == 0 and (not getClassName(type)) then
             addNewError('illegal index of prefix of type ' .. type, SemanticState);
         else
             type = resolveIndexType(type, var.suffix, (var.id or var.prefix), SemanticState);
@@ -1198,15 +1207,12 @@ function Semantic.check(ast, filepath, exportedType)
             utils.dump_print('-' .. error);
         end
     end
-    if #SemanticState.errors > 0 then
-        return nil;
-    else
-        return {
-            types = SemanticState.declaredTypes,
-            overloads = SemanticState.declaredOperations,
-            defaults = SemanticState.globalDefaults
-        }
-    end
+    return {
+        types = SemanticState.declaredTypes,
+        overloads = SemanticState.declaredOperations,
+        defaults = SemanticState.globalDefaults,
+        safeToGenerate = (#SemanticState.errors == 0);
+    }
 end
 
 return Semantic;

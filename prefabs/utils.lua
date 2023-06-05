@@ -1,10 +1,13 @@
 local utils = {};
 
 function utils.remove_first_n(tb, n)
-    local result = table.pack(table.unpack(tb, n + 1));
-    result.n = nil;
-    return result;
+    local result = {}
+    for i = n + 1, #tb do
+        result[i - n] = tb[i]
+    end
+    return result
 end
+
 
 function utils.equal_lists(list1, list2)
     if list1 == nil and list2 == nil then

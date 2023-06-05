@@ -30,7 +30,7 @@ function linker.linkElaFile(path)
         local AST, exportedType = Parser.parse(Lexems, filename);
         if AST then
             local linkResult = Semantic.check(AST, path, exportedType);
-            if linkResult then
+            if linkResult.safeToGenerate then
                 Generator.generate(AST, linkResult, MainFilePath, filename, isMainFile);
             end
             return linkResult;

@@ -29,23 +29,69 @@ class Score : Drawable() as
     end
     draw() 
         Color:setColorELA((new Black() as Color));
-        love.graphics.setFont(love.graphics.newFont(14));
-        love.graphics.print("Black Score:" .. this.blackPlayer, 12, 20);
+        love.graphics.setFont(love.graphics.newFont(12));
+        love.graphics.print("Black Pieces:" .. this.blackPlayer, 12, 20);
         Color:setColorELA((new Red() as Color));
-        love.graphics.print("Red Score:" .. this.blackPlayer, 12, Math2D.screenHeight - 20 - 14);
+        love.graphics.print("Red Pieces:" .. this.redPlayer, 12, Math2D.screenHeight - 20 - 14);
     end;
 end
 
 class Markers : Drawable() as
-    fields @{{boolean}} = {};
-    constructor() end
-    mark(x @number, y @number)
-        this.fields[y][x] = true;
-    end
-    unmark(x @number, y @number)
-        this.fields[y][x] = nil;
-    end
-    draw() end;
+    originalCache @Pair = new Pair(-1, -1);
+    currentCache @Pair = new Pair(-1, -1);
+    color @Color = (new Red() as Color);
+    shouldDraw @string = 'none';
+    points @{Pair} = {};
+    road @{Pair} = {};
+    constructor() end;
+    draw()
+        if this.shouldDraw == 'road' then
+            Color:setColorELA(this.color);
+            local temp @Pair = Math2D:getSquareCenter(DragAndDrop.originalPosition.first, DragAndDrop.originalPosition.second);
+            local startX = temp.first
+            local startY = temp.second
+            local endX;
+            local endY;
+
+            if #this.road == 0 then
+                temp = Math2D:getSquareCenter(DragAndDrop.currentPosition.first, DragAndDrop.currentPosition.second)
+            else
+                temp = Math2D:getSquareCenter(this.road[1].first, this.road[1].second)
+            end
+            endX = temp.first;
+            endY = temp.second;
+            local index @number = 1;
+
+            repeat
+                index = index + 1;
+                love.graphics.line(startX, startY, endX, endY)
+
+                local angle = math.atan2(endY - startY, endX - startX)
+                local arrowSize = 25
+                local arrowPoints = {
+                    endX - arrowSize * math.cos(angle - math.pi / 6), endY - arrowSize * math.sin(angle - math.pi / 6),
+                    endX, endY,
+                    endX - arrowSize * math.cos(angle + math.pi / 6), endY - arrowSize * math.sin(angle + math.pi / 6)
+                }
+                love.graphics.polygon('fill', arrowPoints)
+                startX = endX;
+                startY = endY;
+                if this.road[index] then
+                    temp = Math2D:getSquareCenter((this.road[index].first or -1), (this.road[index].second or -1))
+                    endX = temp.first;
+                    endY = temp.second;
+                end
+            until index > #this.road;
+
+
+        elseif this.shouldDraw == 'points' then
+            Color:setColorELA((new Green() as Color));
+            for i=1, #this.points, 1 do
+                local temp @Pair = Math2D:getSquareCenter(this.points[i].first, this.points[i].second);
+                love.graphics.circle('fill', temp.first, temp.second, 15); 
+            end
+        end
+    end;
 end
 
 class Background : Drawable() as
@@ -65,6 +111,11 @@ class Game : Drawable() as
     score @Score = new Score();
     background @Background = new Background();
     drawables @{Drawable} = {};
+
+    arrowColor @string = 'red';
+    willMoveOnRelease @boolean = false;
+    canAskForNext @boolean = true;
+
     constructor()
         this.board = PopulateBoard(this.board);
         this.drawables[#this.drawables+1] = (this.background as Drawable);
@@ -72,6 +123,97 @@ class Game : Drawable() as
         this.drawables[#this.drawables+1] = (this.markers as Drawable);
         this.drawables[#this.drawables+1] = (this.score as Drawable);
     end;
+
+    originalPosCache @Pair = new Pair(-2, -2);
+    newPosCache @Pair = new Pair(-2, -2);
+    roadCache @{Pair} = {};
+    coroutineSave @thread;
+    canMovePieceTo(piece @Piece, newx @number, newy @number) -> {Pair}
+        if (new Pair(piece.x, piece.y) == this.originalPosCache) and (new Pair(newx, newy) == this.newPosCache) then
+            return this.roadCache;
+        end
+        this.originalPosCache = new Pair(piece.x, piece.y);
+        this.newPosCache = new Pair(newx, newy);
+        this.roadCache = {};
+
+        local numberTable @{{number}} = this.board:convertToNumbers();
+        local co @thread = (coroutine.create(piece.Turn) as thread);
+        this.coroutineSave = co;
+        local result = {coroutine.resume(co, piece, numberTable, piece.x, piece.y, newx, newy)};
+        if(result[2]) then
+            for i=1, #result[2][6], 1 do
+                this.roadCache[#this.roadCache + 1] = new Pair((result[2][6][i][1] as number), (result[2][6][i][2] as number));
+            end
+            return this.roadCache;
+        end
+        this.roadCache = {};
+        return this.roadCache;
+    end
+
+    nextRoad() -> {Pair}
+        local result = {coroutine.resume(this.coroutineSave)};
+        if result[2] and luaType(result[2]) == 'table' then
+        this.roadCache = {};
+            for i=1, #result[2][6], 1 do
+                this.roadCache[#this.roadCache + 1] = new Pair((result[2][6][i][1] as number), (result[2][6][i][2] as number));
+            end
+        end
+        return this.roadCache;
+    end
+
+    allMovesCache @{Pair} = {}; 
+    allPossibleMoves(piece @Piece) -> {Pair}
+        if (new Pair(piece.x, piece.y) == this.originalPosCache) then
+            return this.allMovesCache;
+        end
+        this.originalPosCache = new Pair(piece.x, piece.y);
+        this.allMovesCache = {};
+        THEN_WHAT_YOU_DRAW = '';
+
+        local numberTable @{{number}} = this.board:convertToNumbers();
+        local co @thread = (coroutine.create(piece.Turn) as thread);
+        local result = {coroutine.resume(co, piece, numberTable, piece.x, piece.y)};
+        while result[2] do
+            this.allMovesCache[#this.allMovesCache + 1] = new Pair((result[2][4] as number), (result[2][5] as number));
+            result = {coroutine.resume(co)};
+            THEN_WHAT_YOU_DRAW = THEN_WHAT_YOU_DRAW ..  _dep_utils.dump(result);
+        end
+        return this.allMovesCache;
+    end
+
+    takePieces(piece @Piece)
+        local file = io.open('markers', 'w')
+        local pieceX = piece.x;
+        local pieceY = piece.y;
+        for i=1, #this.markers.road, 1 do
+            file:write(_dep_utils.dump(this.markers.road[i]));
+            if math.abs(pieceX - this.markers.road[i].first) > 1 then
+                local midX = (pieceX + this.markers.road[i].first)/2;
+                local midY = (pieceY + this.markers.road[i].second)/2;
+                this.board.pieces.fields[midY][midX] = nil;
+                pieceX = this.markers.road[i].first;
+                pieceY = this.markers.road[i].second;
+            end
+        end
+    end
+
+    movePiece(piece @Piece, newx @number, newy @number)
+        local func = this.takePieces;
+        func(self, piece);
+        this.board.pieces.fields[piece.y][piece.x] = nil;
+        piece.x = newx;
+        piece.y = newy;
+        if (newy == 1) or (newy == 8) then
+            local file = io.open('here we go again', 'w');
+            local newCrownedPiece @CrownPiece = new CrownPiece(piece);
+            file:write(_dep_utils.dump(newCrownedPiece));
+            file:write(_dep_utils.dump(piece));
+            this.board = this.board + newCrownedPiece;
+        else
+            this.board = this.board + piece;
+        end
+    end
+
     draw()
         for i=1, #this.drawables, 1 do
             this.drawables[i]:draw();

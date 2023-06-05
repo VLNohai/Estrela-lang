@@ -3,12 +3,16 @@ local logic = {};
 local utils = require('deps.utils');
 local CURRENT_ADRESS = 1;
 local CURRENT_SCOPE_ID = 0;
+local bigInteger = 2^31 - 1;
 _Logic_stack_depth = 0;
 
 local function allocate_new(key, value, bindings)
    bindings[key] = CURRENT_ADRESS;
    bindings[CURRENT_ADRESS] = value;
    CURRENT_ADRESS = CURRENT_ADRESS + 1;
+   if CURRENT_ADRESS == bigInteger - 1 then
+      CURRENT_ADRESS = 1;
+   end
 end
 
 local function get_value(key, bindings)
@@ -79,7 +83,7 @@ function logic.toList(...)
       end
       result[index] = elem;
    end
-   return table.unpack(result);
+   return unpack(result);
 end
 
 function logic.unify_many(list1, list2, bindings)
@@ -146,7 +150,7 @@ function logic.run(funcs, args)
    for index, func in ipairs(funcs) do
       local co = coroutine.create(func);
       while coroutine.status(co) ~= "dead" do
-         local _, temp = coroutine.resume(co, table.unpack(args));
+         local _, temp = coroutine.resume(co, unpack(args));
          coroutine.yield(temp);
       end
    end

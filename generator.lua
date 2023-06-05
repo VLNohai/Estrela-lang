@@ -114,7 +114,7 @@ local function handleLogicArgs(block_args, func_args)
     if is_block_unique then
         checkItBinded = checkItBinded .. ' then return nil end;'
     else
-        checkItBinded = checkItBinded .. ' then goto _logic_continue_1 end;'
+        checkItBinded = checkItBinded .. ' then return nil end;'
     end
     local header = '';
     local footer = '';
@@ -189,17 +189,24 @@ local generateVar;
 local function handleLogicStats(stats, containing_func_args)
     local code = '';
     local invalidate_stat = '';
+    local endsToClose = 0;
     for index, stat in ipairs(stats) do
         --update the invalidation sequence
-        if is_block_unique then
-            invalidate_stat = 'then return nil end;\n'
-        else
-            invalidate_stat = 'then goto _logic_continue_' .. bind_depth .. ' end;\n'
-        end
+        local invalidate_stat = 'then return nil end;\n';
         if stat.node == NodeType.LOGIC_CHECK_NODE then
-            code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') ' .. invalidate_stat;
+            if is_block_unique then
+                code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') ' .. invalidate_stat;
+            else
+                code = code .. 'if _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') then\n';
+                endsToClose = endsToClose + 1;
+            end
         elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
-            code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') ' .. invalidate_stat;
+            if is_block_unique then
+                code = code .. 'if not _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ')' .. invalidate_stat;
+            else
+                code = code .. 'if _dep_logic.unify(' .. fromLogicNodeToTable(stat.left) .. ', ' .. fromLogicNodeToTable(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') then\n';
+                endsToClose = endsToClose + 1;
+            end
         elseif stat.node == NodeType.LOGIC_FUNCTION_CALL_NODE then
             if stat.replaceWith then
                 stat.id = generateVar(stat.replaceWith);
@@ -208,7 +215,12 @@ local function handleLogicStats(stats, containing_func_args)
                 if stat.shouldBeSelf then
                     stat.id = stat.id:gsub("(.*)%.(.*)", "%1:%2");
                 end
-                code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') ' ..  invalidate_stat;
+                if is_block_unique then
+                    code = code .. 'if not _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') ' ..  invalidate_stat;
+                else
+                    code = code .. 'if _dep_logic.' .. stat.id .. '(' .. resolveFuncArgs(stat.args) .. ', _logic_bindings_' .. bind_depth .. ') then\n';
+                    endsToClose = endsToClose + 1;
+                end
             else
                 if is_block_unique then
                     if stat.shouldBeSelf then
@@ -224,26 +236,32 @@ local function handleLogicStats(stats, containing_func_args)
                 else
                     local selfArg = ''
                     if stat.shouldBeSelf then
-                        selfArg = stat.id:match("^(.-)%.([^%.]*)$") .. ',';
+                        selfArg = 'self,'
                     end
                     if stat.modifier == 'not' then
                         code = code .. 'local _logic_co_temp = coroutine.create(' .. stat.id .. ');\n';
                         code = code .. 'local _logic_bindings_temp = _dep_utils.deepCopy(_logic_bindings_' .. bind_depth .. ');\n'
                         code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_temp, ' .. selfArg .. resolveFuncArgs(stat.args, true)  .. ')\n';
-                        code = code .. 'if _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+                        code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then\n';
                         code = code .. '_logic_bindings_' .. bind_depth .. ' = _logic_bindings_temp;\n';
+                        endsToClose = endsToClose + 1;
                     else
                         bind_depth = bind_depth + 1;
                         code = code .. 'local _logic_co_' .. bind_depth .. ' = coroutine.create(' .. stat.id .. ');\n';
                         code = code .. 'while coroutine.status(_logic_co_' .. bind_depth .. ') ~= "dead" do\n'
                         code = code .. 'local _logic_bindings_' .. bind_depth .. ' = _dep_utils.deepCopy(_logic_bindings_' .. (bind_depth - 1) .. ');\n'
                         code = code .. '_, temp_resume = ' .. 'coroutine.resume' .. '(_logic_co_' .. bind_depth .. ', ' .. selfArg .. resolveFuncArgs(stat.args, true)  .. ')\n';
-                        code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then goto _logic_continue_' .. bind_depth .. ' end\n';
+                        code = code .. 'if _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, temp_resume, _logic_bindings_' .. bind_depth .. ') then\n';
                     end
                 end
             end
         elseif stat.node == NodeType.LOGIC_ASSIGN_NODE then
-            code = code .. 'if not _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') ' .. invalidate_stat;
+            if is_block_unique then
+                code = code .. 'if not _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') ' .. invalidate_stat;
+            else
+                code = code .. 'if _dep_logic.unify("_' .. stat.left  .. '"' .. scopePrefixString .. ', ' .. spreadExp(stat.right)  .. ', _logic_bindings_' .. bind_depth .. ') then\n';
+                endsToClose = endsToClose + 1;
+            end
         end
     end
     if is_block_unique then
@@ -251,9 +269,11 @@ local function handleLogicStats(stats, containing_func_args)
     else
         code = code .. 'coroutine.yield({' .. resolveFuncArgs(containing_func_args, true) .. '});\n';
         for i=bind_depth, 2, -1 do
-            code = code .. '::_logic_continue_' .. i .. '::;' .. ' end ';
+            code = code .. ' end end';
         end
-        code = code .. '::_logic_continue_1::\n';
+        for i=1, endsToClose do
+            code = code .. ' end';
+        end
         bind_depth = 1;    
     end
     return code;
@@ -592,6 +612,7 @@ local function generateLogicBlock(block, memberOf)
             bodyCode = bodyCode .. 'if temp then coroutine.yield(temp); end;\n'
             bodyCode = bodyCode .. 'if localDepth == 1 then _Logic_stack_depth = 1 end\n';
             bodyCode = bodyCode .. 'end\n';
+            bodyCode = bodyCode .. 'if localDepth == 1 then _Logic_stack_depth = 0 end\n';
     end
 
     --SIGNATURE
@@ -784,7 +805,7 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
                 code = code .. generateExp(branch.condition) .. ' then\n';
                 code = code .. generateBlock(branch.block);
         end
-        if ifStatement.elseBranch then
+        if ifStatement.elseBranch.block then
             code = code .. 'else\n' .. generateBlock(ifStatement.elseBranch.block);
         end
         code = code .. 'end\n'
