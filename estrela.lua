@@ -1,3 +1,3 @@
-local linker = require('linker');
+local requireELA = require('requireELA');
 
-linker.linkElaFile(arg[1]);
+requireELA.linkElaFile(arg[1]);

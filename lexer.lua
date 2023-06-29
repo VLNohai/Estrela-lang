@@ -59,9 +59,8 @@ function lexer.lex(path)
     reset();
     local resultTokens = {}
     inputFile = open(path, "r")
-    outputFile = open('extra/output.lex', "w")
+    --outputFile = open('extra/output.lex', "w")
     if not inputFile then print('file not found!'); return {} end
-    if not outputFile then print('file not found!'); return {} end
     
     nextChar()
     if(c == nil) then print('empty file') return {} end;
@@ -81,22 +80,28 @@ function lexer.lex(path)
             else
                 resultTokens[#resultTokens + 1] = {tokenType = tokens.TokenType.IDENTIFIER; value = word; line = line; column = column - #word - 1}
             end
-        elseif
+        --elseif
 
         --NUMBER
-        string.find(numbers, c, 1, true) then
+        elseif string.find(numbers, c, 1, true) then
             local decimal = false;
             local hex = false;
-            while(c and c:match('[0-9]') or (c=='.' and not decimal) or ((c == 'x' or c =='X') and word == '0') or (c and string.find('abcdefABCDEF', c, 1, true) and hex == true)) do
+            while(c and c:match('[0-9]') or (c=='.' and not decimal) or 
+                 ((c == 'x' or c =='X') and word == '0') or 
+                 (c and string.find('abcdefABCDEF', c, 1, true) and hex == true)) do
                 word = word .. c;
                 if(c == '.') then decimal = true; end;
                 if(word == '0x' or word == '0X') then hex = true; end;
                 nextChar()
             end
             local number = tonumber(word);
-            if(number == nil) then print('invalid number') return end;
+            if(number == nil) then print('invalid number at line: ' .. line .. ', column: ' ..column) return end;
 
-            resultTokens[#resultTokens + 1] = {tokenType = tokens.TokenType.NUMBER_VALUE; value = number; line = line; column = column - #word - 1};
+            resultTokens[#resultTokens + 1] = {
+                tokenType = tokens.TokenType.NUMBER_VALUE; 
+                value = number; line = line; 
+                column = column - #word - 1
+            };
         elseif
 
         --STRINGS
@@ -120,7 +125,7 @@ function lexer.lex(path)
                                 end
                             end
                         end
-                        word = word .. c;
+                        word = word .. '\\' .. c;
                         nextChar()
                     elseif string.find(numbers, c, 1, true) then
                         repeat
@@ -144,7 +149,7 @@ function lexer.lex(path)
                 nextChar()
             else
                 print('error unfinished string');
-                print('last character ' .. c);
+                --print('last character ' .. c);
                 print('line ' .. line)
                 return;
             end
@@ -265,11 +270,13 @@ function lexer.lex(path)
         end
     end
 
+    --[[
     local fileContent = ''
     for key, value in pairs(resultTokens) do
         fileContent = fileContent .. '[' .. value.line .. ':' .. value.column .. ']' .. ' - ' .. value.tokenType .. ' : ' .. (value.value or '_') .. '\n';
     end
     outputFile:write(fileContent);
+    ]]
     return resultTokens;
 end
 

@@ -18,7 +18,7 @@ function defaults.get(typename)
     return defaults.defaultValues[typename];
 end
 
-function defaults.safe(typename, localDefault ,value)
+function defaults.safe(typename, localDefault, value)
     if string.find(typename, '|') and (not localDefault) and (not defaults.defaultValues[typename]) then
         return {};
     end

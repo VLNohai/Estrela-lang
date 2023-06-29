@@ -2,8 +2,6 @@ requireELA('game');
 
 local game @Game = new Game();
 
-local whatDoIPrint = 'nothing';
-
 local function switchTurn()
     if game.arrowColor == 'red' then
         game.arrowColor = 'black';
@@ -21,10 +19,8 @@ local function trackCursor(x @number, y @number)
         game.markers.shouldDraw = 'points';
         game.willMoveOnRelease = false;
         if DragAndDrop.originalPosition == DragAndDrop.currentPosition then
-            whatDoIPrint = 'same square';
             game.markers.points = game:allPossibleMoves(DragAndDrop.selectedPiece);
         else
-            whatDoIPrint = 'other square ';
             game.markers.shouldDraw = 'road';
             debug = DragAndDrop.currentPosition.first .. ':' .. DragAndDrop.currentPosition.second .. ' <- ' .. DragAndDrop.originalPosition.first .. ':' .. DragAndDrop.originalPosition.second
             local road @{Pair} = game:canMovePieceTo(DragAndDrop.selectedPiece, DragAndDrop.currentPosition.first, DragAndDrop.currentPosition.second)
@@ -37,10 +33,8 @@ local function trackCursor(x @number, y @number)
                     game.canAskForNext = false;
                 end
             else
-                whatDoIPrint = 'cannot move';
                 game.markers.color = (new Red() as Color);
                 game.markers.road = {};
-                IS_GOOD = 'NOGOOD';
             end
         end
     else
@@ -52,9 +46,11 @@ end
 function love.mousepressed(x, y, button)
     if button == 1 then
         local temp @Pair = Math2D:getSquareCoordinates((x as number), (y as number));
-        DragAndDrop.originalPosition.first = temp.first;
-        DragAndDrop.originalPosition.second = temp.second;
-        DragAndDrop.selectedPiece = game.board.pieces:get(DragAndDrop.originalPosition.first, DragAndDrop.originalPosition.second);
+        if temp.first ~= -1 and temp.second ~= -1 then
+            DragAndDrop.originalPosition.first = temp.first;
+            DragAndDrop.originalPosition.second = temp.second;
+            DragAndDrop.selectedPiece = game.board.pieces:get(DragAndDrop.originalPosition.first, DragAndDrop.originalPosition.second);
+        end
     end
 end
 
@@ -90,7 +86,4 @@ end
 
 function love.draw()
     game:draw();
-    love.graphics.setColor(0, 0, 0);
-    love.graphics.print(whatDoIPrint);
-    love.graphics.print(debug, 0, 100)
 end

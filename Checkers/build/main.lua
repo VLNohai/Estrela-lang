@@ -1,4 +1,3 @@
-local _dep_linkedlist = require("deps.linkedlist");
 local _dep_overload = require("deps.overload");
 local _dep_types = require("deps.types");
 local _dep_utils = require("deps.utils");
@@ -9,7 +8,6 @@ local _dep_globals = require("deps.globals");
 --end of dependencies
 require("game");
 local game = Game:new(1);
-local whatDoIPrint = 'nothing';
 local function switchTurn()
 if game.arrowColor == 'red' then
 game.arrowColor = 'black';
@@ -27,10 +25,8 @@ if (_dep_cast.validate(DragAndDrop.selectedPiece.color,"Red") and (game.arrowCol
 game.markers.shouldDraw = 'points';
 game.willMoveOnRelease = false;
 if DragAndDrop.originalPosition == DragAndDrop.currentPosition then
-whatDoIPrint = 'same square';
 game.markers.points = game:allPossibleMoves(DragAndDrop.selectedPiece);
 else
-whatDoIPrint = 'other square ';
 game.markers.shouldDraw = 'road';
 debug = DragAndDrop.currentPosition.first .. ':' .. DragAndDrop.currentPosition.second .. ' <- ' .. DragAndDrop.originalPosition.first .. ':' .. DragAndDrop.originalPosition.second;
 local road = game:canMovePieceTo(DragAndDrop.selectedPiece,DragAndDrop.currentPosition.first,DragAndDrop.currentPosition.second);
@@ -44,10 +40,8 @@ game.canAskForNext = false;
 end
 
 else
-whatDoIPrint = 'cannot move';
 game.markers.color = Red:new(1);
 game.markers.road = {};
-IS_GOOD = 'NOGOOD';
 end
 
 end
@@ -61,9 +55,12 @@ end
 function love.mousepressed(x,y,button)
 if button == 1 then
 local temp = Math2D:getSquareCoordinates(_dep_defaults.safe("number",_default_number,_dep_cast.cast(x,"number")),_dep_defaults.safe("number",_default_number,_dep_cast.cast(y,"number")));
+if temp.first ~= - 1 and temp.second ~= - 1 then
 DragAndDrop.originalPosition.first = temp.first;
 DragAndDrop.originalPosition.second = temp.second;
 DragAndDrop.selectedPiece = game.board.pieces:get(DragAndDrop.originalPosition.first,DragAndDrop.originalPosition.second);
+end
+
 end
 
 end
@@ -98,7 +95,4 @@ game.score.blackPlayer = score.second;
 end
 function love.draw()
 game:draw();
-love.graphics.setColor(0,0,0);
-love.graphics.print(whatDoIPrint);
-love.graphics.print(debug,0,100);
 end

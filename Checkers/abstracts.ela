@@ -36,6 +36,9 @@ class Math2D as
         return new Pair(squareLeftCornerX, squareLeftCornerY);
     end
     static getSquareCenter(x @number, y @number) -> Pair
+        if x < 1 or x > 8 or y < 1 or y > 8 then
+            return new Pair(-1, -1);
+        end
         local corner @Pair = Math2D:getSquareCorner(x, y);
         local centerX @number = corner.first + Math2D.tableWidth/16;
         local centerY @number = corner.second + Math2D.tableHeight/16;

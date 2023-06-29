@@ -3,7 +3,7 @@ requireELA('piece');
 local default for Piece is (new BlankPiece() as Piece);
 class PieceMatrix as
     fields @{{Piece}} = {};
-    constructor() 
+    constructor()
         for i=1, 8, 1 do
             this.fields[i] = {};
         end
@@ -94,5 +94,10 @@ end
 
 operator+(board @Board, piece @CrownPiece) -> Board;
     board.pieces:set(piece.x, piece.y, (piece as Piece));
+    return board;
+end
+
+operator+(board @Board, piece @Piece) -> Board;
+    board.pieces:set(piece.x, piece.y, piece);
     return board;
 end

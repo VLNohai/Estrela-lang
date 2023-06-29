@@ -1,4 +1,5 @@
 local NodeType = require('tokens').NodeType;
+local TokenType = require('tokens').TokenType;
 local utils = require('utils');
 local mapTokensToFields = require('metatableOps');
 local Generator = {};
@@ -101,7 +102,7 @@ local function resolveFuncArgs(func_args, ret_by_binding)
     for index, arg in ipairs(func_args) do
         local left, right = '', '';
         if ret_by_binding then
-            left, right = '_dep_logic.substitute_vars(', ', _logic_bindings_' .. bind_depth .. ')';
+            left, right = '_dep_logic.substituteAtoms(', ', _logic_bindings_' .. bind_depth .. ')';
         end
         code = code .. left .. fromLogicNodeToTable(arg) .. right ..', ';
     end
@@ -133,14 +134,14 @@ end
 local function resolveToNumber(value)
     local code = '';
     if value.node == NodeType.LOGIC_IDENTIFIER_NODE then
-        code = '_dep_logic.substitute_vars(' .. "'_" .. value.id .. "'" .. scopePrefixString .. ', _logic_bindings_' .. bind_depth .. ')';
+        code = '_dep_logic.substituteAtoms(' .. "'_" .. value.id .. "'" .. scopePrefixString .. ', _logic_bindings_' .. bind_depth .. ')';
     else
         code = code .. value.value;
     end
     return code;
 end
 
-local function FromTokenToStringOps(token)
+local function fromTokenToStringOps(token)
     if token == TokenType.PLUS_OPERATOR then
         return '+';
     elseif token == TokenType.MINUS_OPERATOR then
@@ -174,7 +175,7 @@ local function spreadExp(exp)
         code = code .. resolveToNumber(exp.value);
     end
     while exp.exp do
-        code = code .. FromTokenToStringOps(exp.binop);
+        code = code .. fromTokenToStringOps(exp.binop);
         exp = exp.exp;
         if exp.value then
             code = code .. resolveToNumber(exp.value);
@@ -195,9 +196,9 @@ local function handleLogicStats(stats, containing_func_args)
         local invalidate_stat = 'then return nil end;\n';
         if stat.node == NodeType.LOGIC_CHECK_NODE then
             if is_block_unique then
-                code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') ' .. invalidate_stat;
+                code = code .. 'if not _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. fromTokenToStringOps(stat.check) .. "'" .. ') ' .. invalidate_stat;
             else
-                code = code .. 'if _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. FromTokenToStringOps(stat.check) .. "'" .. ') then\n';
+                code = code .. 'if _dep_logic.check(' .. spreadExp(stat.left) .. ', ' .. spreadExp(stat.right) .. ", '" .. fromTokenToStringOps(stat.check) .. "'" .. ') then\n';
                 endsToClose = endsToClose + 1;
             end
         elseif stat.node == NodeType.LOGIC_UNIFY_NODE then
@@ -227,9 +228,9 @@ local function handleLogicStats(stats, containing_func_args)
                         stat.id = stat.id:gsub("(.*)%.(.*)", "%1:%2");
                     end
                     if stat.modifier == 'not' then
-                        code = code .. 'local _logic_bindings_temp = _logic_bindings_\n';
+                        code = code .. 'local _logic_bindings_temp = _logic_bindings_' .. bind_depth .. ';\n';
                         code = code .. 'if _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
-                        code = code .. '_logic_bindings_ = _logic_bindings_temp;\n';
+                        code = code .. '_logic_bindings_' .. bind_depth .. ' = _logic_bindings_temp;\n';
                     else
                         code = code .. 'if not _dep_logic.unify_many({' .. resolveFuncArgs(stat.args) .. '}, ' .. stat.id .. '(' .. resolveFuncArgs(stat.args, true)  .. ')' .. ', _logic_bindings_' .. bind_depth .. ') then return nil end\n';
                     end
@@ -745,18 +746,16 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     end
 
     --HANDLE FILES
-    local command = 'mkdir "' .. mainFilePath .. '/build' .. '" 2>nul'
+    if mainFilePath then mainFilePath = mainFilePath .. '/' else mainFilePath = '' end;
+    local command = 'mkdir "' .. (mainFilePath or '') .. 'build' .. '" 2>nul'
     local handle = io.popen(command)
     if handle then
         handle:close();
     end
-    OutputFile = io.open(mainFilePath ..  '/build/' .. filename .. '.lua', 'w');
+    OutputFile = io.open(mainFilePath ..  'build/' .. filename .. '.lua', 'w');
 
-    local astfile = io.open('extra/ast.ast', 'w');
     os.execute('mkdir "' .. mainFilePath ..  '/build/deps' .. '" > nul 2>&1')
     depsPath = mainFilePath .. '/build/deps';
-    if not astfile then return; end;
-    astfile:write(utils.dump(ast));
     --------------------------------
     fileCode = loadDependency(dependencies, fileCode, 'globals', true);
     fileCode = loadDependency(dependencies, fileCode, 'defaults', true);
@@ -767,7 +766,7 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
     fileCode = loadDependency(dependencies, fileCode, 'utils', true);
     fileCode = loadDependency(dependencies, fileCode, 'types', true);
     fileCode = loadDependency(dependencies, fileCode, 'overload', true);
-    fileCode = loadDependency(dependencies, fileCode, 'linkedlist', true);
+    fileCode = loadDependency(dependencies, fileCode, 'linkedlist');
 
     statRouter = {};
 
@@ -805,7 +804,7 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
                 code = code .. generateExp(branch.condition) .. ' then\n';
                 code = code .. generateBlock(branch.block);
         end
-        if ifStatement.elseBranch.block then
+        if ifStatement.elseBranch then
             code = code .. 'else\n' .. generateBlock(ifStatement.elseBranch.block);
         end
         code = code .. 'end\n'
@@ -885,8 +884,7 @@ function Generator.generate(ast, linkResult, mainFilePath, filename, isMainFile)
 
     for index, stat in ipairs(ast.stats) do
         if statRouter[stat.node] then
-            local temp = statRouter[stat.node](stat) .. '\n';
-            fileCode = fileCode .. temp;
+            fileCode = fileCode .. statRouter[stat.node](stat) .. '\n';
         end
     end
     if ast.retstat.expressions then

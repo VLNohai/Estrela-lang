@@ -78,20 +78,20 @@ class Piece : Drawable() as
         (table, x, y, newx, newy, road, visited, index)
             index == 1;
             Move(x, y, newx, newy);
-            DirectionByColor(x, y, newx, newy);
+            DirectionByColor(x, y, newx, newy); --abstract
             InBounds(newx, newy);
             FreeSquare(table, newx, newy);
             road = {{newx, newy}};
         end
         (table, x, y, newx, newy, road, visited, index)
             Jump(x, y, newx, newy);
-            DirectionByColor(x, y, newx, newy);
+            DirectionByColor(x, y, newx, newy); --abstract
             InBounds(newx, newy);
             FreeSquare(table, newx, newy);
             not(Visited(newx, newy, visited));
             GetInBetween(table, x, y, newx, newy, color);
             road = {{newx, newy}};
-            EnemyColor(color);
+            EnemyColor(color); --abstract
         end
         (table, x, y, newx, newy, road, visited, index)
             newVisited = {{x, y}|visited};
@@ -132,7 +132,7 @@ class RedPiece : Piece(posX @number, posY @number) as
             newy < y;
         end
     end
-    logic unique EnemyColor(color) 
+    logic unique EnemyColor(color)
         (color)
             color == 1;
         end
@@ -174,6 +174,8 @@ class CrownPiece : Piece(posX @number, posY @number) as
         love.graphics.circle('fill', pair.first, pair.second, Math2D.pieceRadius);
         Color:setColorELA((new Gold() as Color));
         love.graphics.circle('fill', pair.first, pair.second, Math2D.pieceRadius - 10);
+        Color:setColorELA(this.color);
+        love.graphics.circle('fill', pair.first, pair.second, Math2D.pieceRadius - 20);
     end
     logic unique DirectionByColor(x, y, newx, newy)
         (x, y, newx, newy) end;

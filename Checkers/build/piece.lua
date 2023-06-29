@@ -1,4 +1,3 @@
-local _dep_linkedlist = require("deps.linkedlist");
 local _dep_overload = require("deps.overload");
 local _dep_types = require("deps.types");
 local _dep_utils = require("deps.utils");
@@ -38,9 +37,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID},
 {table, x, y}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.unify_many({'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID, '_rez'..'#'..scID}, Prolog:getXY(_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
-if not _dep_logic.check(_dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1), 0, '==') then return nil end;
-return {_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.unify_many({'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID, '_rez'..'#'..scID}, Prolog:getXY(_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
+if not _dep_logic.check(_dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1), 0, '==') then return nil end;
+return {_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = FreeSquare_1(table, x, y) or nil;
@@ -61,11 +60,11 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID},
 {x, y}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), 1, '>=') then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), 8, '<=') then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), 1, '>=') then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), 8, '<=') then return nil end;
-return {_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.check(_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), 1, '>=') then return nil end;
+if not _dep_logic.check(_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), 8, '<=') then return nil end;
+if not _dep_logic.check(_dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), 1, '>=') then return nil end;
+if not _dep_logic.check(_dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), 8, '<=') then return nil end;
+return {_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = InBounds_1(x, y) or nil;
@@ -86,10 +85,10 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_table'..'#'..scID, '_x1'..'#'..scID, '_y1'..'#'..scID, '_x2'..'#'..scID, '_y2'..'#'..scID, '_rez'..'#'..scID},
 {table, x1, y1, x2, y2, rez}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.unify("_midx"..'#'..scID, (_dep_logic.substitute_vars('_x1'..'#'..scID, _logic_bindings_1)+_dep_logic.substitute_vars('_x2'..'#'..scID, _logic_bindings_1))/2, _logic_bindings_1) then return nil end;
-if not _dep_logic.unify("_midy"..'#'..scID, (_dep_logic.substitute_vars('_y1'..'#'..scID, _logic_bindings_1)+_dep_logic.substitute_vars('_y2'..'#'..scID, _logic_bindings_1))/2, _logic_bindings_1) then return nil end;
-if not _dep_logic.unify_many({'_table'..'#'..scID, '_midx'..'#'..scID, '_midy'..'#'..scID, '_rez'..'#'..scID}, Prolog:getXY(_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_midx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_midy'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
-return {_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_x1'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y1'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_x2'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y2'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.unify("_midx"..'#'..scID, (_dep_logic.substituteAtoms('_x1'..'#'..scID, _logic_bindings_1)+_dep_logic.substituteAtoms('_x2'..'#'..scID, _logic_bindings_1))/2, _logic_bindings_1) then return nil end;
+if not _dep_logic.unify("_midy"..'#'..scID, (_dep_logic.substituteAtoms('_y1'..'#'..scID, _logic_bindings_1)+_dep_logic.substituteAtoms('_y2'..'#'..scID, _logic_bindings_1))/2, _logic_bindings_1) then return nil end;
+if not _dep_logic.unify_many({'_table'..'#'..scID, '_midx'..'#'..scID, '_midy'..'#'..scID, '_rez'..'#'..scID}, Prolog:getXY(_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_midx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_midy'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
+return {_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_x1'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y1'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_x2'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y2'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = GetInBetween_1(table, x1, y1, x2, y2, rez) or nil;
@@ -112,9 +111,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local function Jump_2(x, y, newx, newy)
@@ -124,9 +123,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local function Jump_3(x, y, newx, newy)
@@ -136,9 +135,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)+2, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local function Jump_4(x, y, newx, newy)
@@ -148,9 +147,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)-2, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local _logic_run = coroutine.create(_dep_logic.run);
@@ -176,9 +175,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local function Move_2(x, y, newx, newy)
@@ -188,9 +187,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local function Move_3(x, y, newx, newy)
@@ -200,9 +199,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local function Move_4(x, y, newx, newy)
@@ -212,9 +211,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
-if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.unify("_newx"..'#'..scID, _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
+if _dep_logic.unify("_newy"..'#'..scID, _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1)-1, _logic_bindings_1) then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end end
 end
 local _logic_run = coroutine.create(_dep_logic.run);
@@ -240,7 +239,7 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, {head = { head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, tail = '_t'..'#'..scID}},
 {x, y, visited}, {});
 if not _logic_bindings_1 then return nil end;
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars({head = { head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, tail = '_t'..'#'..scID}, _logic_bindings_1)});
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms({head = { head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, tail = '_t'..'#'..scID}, _logic_bindings_1)});
 
 end
 local function Visited_2(x, y, visited)
@@ -252,15 +251,15 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 if not _logic_bindings_1 then return nil end;
 local _logic_co_temp = coroutine.create(Prolog.equalPair);
 local _logic_bindings_temp = _dep_utils.deepCopy(_logic_bindings_1);
-_, temp_resume = coroutine.resume(_logic_co_temp, self,_dep_logic.substitute_vars({ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, _logic_bindings_1), _dep_logic.substitute_vars({ head = '_a'..'#'..scID, tail = {head = '_b'..'#'..scID, tail = {}}}, _logic_bindings_1))
+_, temp_resume = coroutine.resume(_logic_co_temp, self,_dep_logic.substituteAtoms({ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, _logic_bindings_1), _dep_logic.substituteAtoms({ head = '_a'..'#'..scID, tail = {head = '_b'..'#'..scID, tail = {}}}, _logic_bindings_1))
 if not _dep_logic.unify_many({{ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, { head = '_a'..'#'..scID, tail = {head = '_b'..'#'..scID, tail = {}}}}, temp_resume, _logic_bindings_1) then
 _logic_bindings_1 = _logic_bindings_temp;
 local _logic_co_2 = coroutine.create(Piece.Visited);
 while coroutine.status(_logic_co_2) ~= "dead" do
 local _logic_bindings_2 = _dep_utils.deepCopy(_logic_bindings_1);
-_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_t'..'#'..scID, _logic_bindings_2))
+_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_t'..'#'..scID, _logic_bindings_2))
 if _dep_logic.unify_many({'_x'..'#'..scID, '_y'..'#'..scID, '_t'..'#'..scID}, temp_resume, _logic_bindings_2) then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars({head = { head = '_a'..'#'..scID, tail = {head = '_b'..'#'..scID, tail = {}}}, tail = '_t'..'#'..scID}, _logic_bindings_2)});
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms({head = { head = '_a'..'#'..scID, tail = {head = '_b'..'#'..scID, tail = {}}}, tail = '_t'..'#'..scID}, _logic_bindings_2)});
  end end end
 end
 local _logic_run = coroutine.create(_dep_logic.run);
@@ -286,29 +285,29 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID, '_road'..'#'..scID, '_visited'..'#'..scID, '_index'..'#'..scID},
 {table, x, y, newx, newy, road, visited, index}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.check(_dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_1), 1, '==') then
+if _dep_logic.check(_dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_1), 1, '==') then
 local _logic_co_2 = coroutine.create(Piece.Move);
 while coroutine.status(_logic_co_2) ~= "dead" do
 local _logic_bindings_2 = _dep_utils.deepCopy(_logic_bindings_1);
-_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_2))
+_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_2))
 if _dep_logic.unify_many({'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_2) then
 local _logic_co_3 = coroutine.create(self.DirectionByColor);
 while coroutine.status(_logic_co_3) ~= "dead" do
 local _logic_bindings_3 = _dep_utils.deepCopy(_logic_bindings_2);
-_, temp_resume = coroutine.resume(_logic_co_3, self,_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_3))
+_, temp_resume = coroutine.resume(_logic_co_3, self,_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_3))
 if _dep_logic.unify_many({'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_3) then
 local _logic_co_4 = coroutine.create(Piece.InBounds);
 while coroutine.status(_logic_co_4) ~= "dead" do
 local _logic_bindings_4 = _dep_utils.deepCopy(_logic_bindings_3);
-_, temp_resume = coroutine.resume(_logic_co_4, self,_dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_4), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_4))
+_, temp_resume = coroutine.resume(_logic_co_4, self,_dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_4), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_4))
 if _dep_logic.unify_many({'_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_4) then
 local _logic_co_5 = coroutine.create(Piece.FreeSquare);
 while coroutine.status(_logic_co_5) ~= "dead" do
 local _logic_bindings_5 = _dep_utils.deepCopy(_logic_bindings_4);
-_, temp_resume = coroutine.resume(_logic_co_5, self,_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_5))
+_, temp_resume = coroutine.resume(_logic_co_5, self,_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_5))
 if _dep_logic.unify_many({'_table'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_5) then
 if _dep_logic.unify('_road'..'#'..scID, {head = { head = '_newx'..'#'..scID, tail = {head = '_newy'..'#'..scID, tail = {}}}, tail = {}}, _logic_bindings_5) then
-coroutine.yield({_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_road'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_visited'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_5)});
+coroutine.yield({_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_road'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_visited'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_5)});
  end end end end end end end end end end
 end
 local function TurnHelper_2(table, x, y, newx, newy, road, visited, index)
@@ -321,40 +320,40 @@ if not _logic_bindings_1 then return nil end;
 local _logic_co_2 = coroutine.create(Piece.Jump);
 while coroutine.status(_logic_co_2) ~= "dead" do
 local _logic_bindings_2 = _dep_utils.deepCopy(_logic_bindings_1);
-_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_2))
+_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_2))
 if _dep_logic.unify_many({'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_2) then
 local _logic_co_3 = coroutine.create(self.DirectionByColor);
 while coroutine.status(_logic_co_3) ~= "dead" do
 local _logic_bindings_3 = _dep_utils.deepCopy(_logic_bindings_2);
-_, temp_resume = coroutine.resume(_logic_co_3, self,_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_3))
+_, temp_resume = coroutine.resume(_logic_co_3, self,_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_3))
 if _dep_logic.unify_many({'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_3) then
 local _logic_co_4 = coroutine.create(Piece.InBounds);
 while coroutine.status(_logic_co_4) ~= "dead" do
 local _logic_bindings_4 = _dep_utils.deepCopy(_logic_bindings_3);
-_, temp_resume = coroutine.resume(_logic_co_4, self,_dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_4), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_4))
+_, temp_resume = coroutine.resume(_logic_co_4, self,_dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_4), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_4))
 if _dep_logic.unify_many({'_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_4) then
 local _logic_co_5 = coroutine.create(Piece.FreeSquare);
 while coroutine.status(_logic_co_5) ~= "dead" do
 local _logic_bindings_5 = _dep_utils.deepCopy(_logic_bindings_4);
-_, temp_resume = coroutine.resume(_logic_co_5, self,_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_5))
+_, temp_resume = coroutine.resume(_logic_co_5, self,_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_5))
 if _dep_logic.unify_many({'_table'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID}, temp_resume, _logic_bindings_5) then
 local _logic_co_temp = coroutine.create(Piece.Visited);
 local _logic_bindings_temp = _dep_utils.deepCopy(_logic_bindings_5);
-_, temp_resume = coroutine.resume(_logic_co_temp, self,_dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_visited'..'#'..scID, _logic_bindings_5))
+_, temp_resume = coroutine.resume(_logic_co_temp, self,_dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_visited'..'#'..scID, _logic_bindings_5))
 if not _dep_logic.unify_many({'_newx'..'#'..scID, '_newy'..'#'..scID, '_visited'..'#'..scID}, temp_resume, _logic_bindings_5) then
 _logic_bindings_5 = _logic_bindings_temp;
 local _logic_co_6 = coroutine.create(Piece.GetInBetween);
 while coroutine.status(_logic_co_6) ~= "dead" do
 local _logic_bindings_6 = _dep_utils.deepCopy(_logic_bindings_5);
-_, temp_resume = coroutine.resume(_logic_co_6, self,_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_6))
+_, temp_resume = coroutine.resume(_logic_co_6, self,_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_6))
 if _dep_logic.unify_many({'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID, '_color'..'#'..scID}, temp_resume, _logic_bindings_6) then
 if _dep_logic.unify('_road'..'#'..scID, {head = { head = '_newx'..'#'..scID, tail = {head = '_newy'..'#'..scID, tail = {}}}, tail = {}}, _logic_bindings_6) then
 local _logic_co_7 = coroutine.create(self.EnemyColor);
 while coroutine.status(_logic_co_7) ~= "dead" do
 local _logic_bindings_7 = _dep_utils.deepCopy(_logic_bindings_6);
-_, temp_resume = coroutine.resume(_logic_co_7, self,_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_7))
+_, temp_resume = coroutine.resume(_logic_co_7, self,_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_7))
 if _dep_logic.unify_many({'_color'..'#'..scID}, temp_resume, _logic_bindings_7) then
-coroutine.yield({_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_7), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_7), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_7), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_7), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_7), _dep_logic.substitute_vars('_road'..'#'..scID, _logic_bindings_7), _dep_logic.substitute_vars('_visited'..'#'..scID, _logic_bindings_7), _dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_7)});
+coroutine.yield({_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_7), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_7), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_7), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_7), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_7), _dep_logic.substituteAtoms('_road'..'#'..scID, _logic_bindings_7), _dep_logic.substituteAtoms('_visited'..'#'..scID, _logic_bindings_7), _dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_7)});
  end end end end end end end end end end end end end end
 end
 local function TurnHelper_3(table, x, y, newx, newy, road, visited, index)
@@ -368,46 +367,46 @@ if _dep_logic.unify('_newVisited'..'#'..scID, {head = { head = '_x'..'#'..scID, 
 local _logic_co_2 = coroutine.create(Piece.Jump);
 while coroutine.status(_logic_co_2) ~= "dead" do
 local _logic_bindings_2 = _dep_utils.deepCopy(_logic_bindings_1);
-_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_mid_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_mid_newy'..'#'..scID, _logic_bindings_2))
+_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_mid_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_mid_newy'..'#'..scID, _logic_bindings_2))
 if _dep_logic.unify_many({'_x'..'#'..scID, '_y'..'#'..scID, '_mid_newx'..'#'..scID, '_mid_newy'..'#'..scID}, temp_resume, _logic_bindings_2) then
 local _logic_co_temp = coroutine.create(Piece.Visited);
 local _logic_bindings_temp = _dep_utils.deepCopy(_logic_bindings_2);
-_, temp_resume = coroutine.resume(_logic_co_temp, self,_dep_logic.substitute_vars('_mid_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_mid_newy'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_visited'..'#'..scID, _logic_bindings_2))
+_, temp_resume = coroutine.resume(_logic_co_temp, self,_dep_logic.substituteAtoms('_mid_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_mid_newy'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_visited'..'#'..scID, _logic_bindings_2))
 if not _dep_logic.unify_many({'_mid_newx'..'#'..scID, '_mid_newy'..'#'..scID, '_visited'..'#'..scID}, temp_resume, _logic_bindings_2) then
 _logic_bindings_2 = _logic_bindings_temp;
 local _logic_co_3 = coroutine.create(self.DirectionByColor);
 while coroutine.status(_logic_co_3) ~= "dead" do
 local _logic_bindings_3 = _dep_utils.deepCopy(_logic_bindings_2);
-_, temp_resume = coroutine.resume(_logic_co_3, self,_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_mid_newx'..'#'..scID, _logic_bindings_3), _dep_logic.substitute_vars('_mid_newy'..'#'..scID, _logic_bindings_3))
+_, temp_resume = coroutine.resume(_logic_co_3, self,_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_mid_newx'..'#'..scID, _logic_bindings_3), _dep_logic.substituteAtoms('_mid_newy'..'#'..scID, _logic_bindings_3))
 if _dep_logic.unify_many({'_x'..'#'..scID, '_y'..'#'..scID, '_mid_newx'..'#'..scID, '_mid_newy'..'#'..scID}, temp_resume, _logic_bindings_3) then
 local _logic_co_4 = coroutine.create(Piece.InBounds);
 while coroutine.status(_logic_co_4) ~= "dead" do
 local _logic_bindings_4 = _dep_utils.deepCopy(_logic_bindings_3);
-_, temp_resume = coroutine.resume(_logic_co_4, self,_dep_logic.substitute_vars('_mid_newx'..'#'..scID, _logic_bindings_4), _dep_logic.substitute_vars('_mid_newy'..'#'..scID, _logic_bindings_4))
+_, temp_resume = coroutine.resume(_logic_co_4, self,_dep_logic.substituteAtoms('_mid_newx'..'#'..scID, _logic_bindings_4), _dep_logic.substituteAtoms('_mid_newy'..'#'..scID, _logic_bindings_4))
 if _dep_logic.unify_many({'_mid_newx'..'#'..scID, '_mid_newy'..'#'..scID}, temp_resume, _logic_bindings_4) then
 local _logic_co_5 = coroutine.create(Piece.FreeSquare);
 while coroutine.status(_logic_co_5) ~= "dead" do
 local _logic_bindings_5 = _dep_utils.deepCopy(_logic_bindings_4);
-_, temp_resume = coroutine.resume(_logic_co_5, self,_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_mid_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substitute_vars('_mid_newy'..'#'..scID, _logic_bindings_5))
+_, temp_resume = coroutine.resume(_logic_co_5, self,_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_mid_newx'..'#'..scID, _logic_bindings_5), _dep_logic.substituteAtoms('_mid_newy'..'#'..scID, _logic_bindings_5))
 if _dep_logic.unify_many({'_table'..'#'..scID, '_mid_newx'..'#'..scID, '_mid_newy'..'#'..scID}, temp_resume, _logic_bindings_5) then
 local _logic_co_6 = coroutine.create(Piece.GetInBetween);
 while coroutine.status(_logic_co_6) ~= "dead" do
 local _logic_bindings_6 = _dep_utils.deepCopy(_logic_bindings_5);
-_, temp_resume = coroutine.resume(_logic_co_6, self,_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_mid_newx'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_mid_newy'..'#'..scID, _logic_bindings_6), _dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_6))
+_, temp_resume = coroutine.resume(_logic_co_6, self,_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_mid_newx'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_mid_newy'..'#'..scID, _logic_bindings_6), _dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_6))
 if _dep_logic.unify_many({'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID, '_mid_newx'..'#'..scID, '_mid_newy'..'#'..scID, '_color'..'#'..scID}, temp_resume, _logic_bindings_6) then
 local _logic_co_7 = coroutine.create(self.EnemyColor);
 while coroutine.status(_logic_co_7) ~= "dead" do
 local _logic_bindings_7 = _dep_utils.deepCopy(_logic_bindings_6);
-_, temp_resume = coroutine.resume(_logic_co_7, self,_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_7))
+_, temp_resume = coroutine.resume(_logic_co_7, self,_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_7))
 if _dep_logic.unify_many({'_color'..'#'..scID}, temp_resume, _logic_bindings_7) then
-if _dep_logic.unify("_newIndex"..'#'..scID, _dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_7)+1, _logic_bindings_7) then
+if _dep_logic.unify("_newIndex"..'#'..scID, _dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_7)+1, _logic_bindings_7) then
 local _logic_co_8 = coroutine.create(Piece.TurnHelper);
 while coroutine.status(_logic_co_8) ~= "dead" do
 local _logic_bindings_8 = _dep_utils.deepCopy(_logic_bindings_7);
-_, temp_resume = coroutine.resume(_logic_co_8, self,_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_mid_newx'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_mid_newy'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_road_rec'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_newVisited'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_newIndex'..'#'..scID, _logic_bindings_8))
+_, temp_resume = coroutine.resume(_logic_co_8, self,_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_mid_newx'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_mid_newy'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_road_rec'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_newVisited'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_newIndex'..'#'..scID, _logic_bindings_8))
 if _dep_logic.unify_many({'_table'..'#'..scID, '_mid_newx'..'#'..scID, '_mid_newy'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID, '_road_rec'..'#'..scID, '_newVisited'..'#'..scID, '_newIndex'..'#'..scID}, temp_resume, _logic_bindings_8) then
 if _dep_logic.unify('_road'..'#'..scID, {head = { head = '_mid_newx'..'#'..scID, tail = {head = '_mid_newy'..'#'..scID, tail = {}}}, tail = '_road_rec'..'#'..scID}, _logic_bindings_8) then
-coroutine.yield({_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_road'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_visited'..'#'..scID, _logic_bindings_8), _dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_8)});
+coroutine.yield({_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_road'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_visited'..'#'..scID, _logic_bindings_8), _dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_8)});
  end end end end end end end end end end end end end end end end end end
 end
 local _logic_run = coroutine.create(_dep_logic.run);
@@ -436,9 +435,9 @@ if not _logic_bindings_1 then return nil end;
 local _logic_co_2 = coroutine.create(Piece.TurnHelper);
 while coroutine.status(_logic_co_2) ~= "dead" do
 local _logic_bindings_2 = _dep_utils.deepCopy(_logic_bindings_1);
-_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_road'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars({}, _logic_bindings_2), _dep_logic.substitute_vars(1, _logic_bindings_2))
+_, temp_resume = coroutine.resume(_logic_co_2, self,_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_road'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms({}, _logic_bindings_2), _dep_logic.substituteAtoms(1, _logic_bindings_2))
 if _dep_logic.unify_many({'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID, '_road'..'#'..scID, {}, 1}, temp_resume, _logic_bindings_2) then
-coroutine.yield({_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_2), _dep_logic.substitute_vars('_road'..'#'..scID, _logic_bindings_2)});
+coroutine.yield({_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_2), _dep_logic.substituteAtoms('_road'..'#'..scID, _logic_bindings_2)});
  end end
 end
 local _logic_run = coroutine.create(_dep_logic.run);
@@ -491,8 +490,8 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.check(_dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), '<') then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.check(_dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), '<') then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end
 end
 local _logic_run = coroutine.create(_dep_logic.run);
@@ -516,8 +515,8 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_color'..'#'..scID},
 {color}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_1), 1, '==') then return nil end;
-return {_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.check(_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_1), 1, '==') then return nil end;
+return {_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = EnemyColor_1(color) or nil;
@@ -567,8 +566,8 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-if _dep_logic.check(_dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), '>') then
-coroutine.yield({_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)});
+if _dep_logic.check(_dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), '>') then
+coroutine.yield({_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)});
  end
 end
 local _logic_run = coroutine.create(_dep_logic.run);
@@ -592,8 +591,8 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_color'..'#'..scID},
 {color}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_1), 2, '==') then return nil end;
-return {_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.check(_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_1), 2, '==') then return nil end;
+return {_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = EnemyColor_1(color) or nil;
@@ -631,6 +630,8 @@ Color:setColorELA(self.color);
 love.graphics.circle('fill',pair.first,pair.second,Math2D.pieceRadius);
 Color:setColorELA(Gold:new(1));
 love.graphics.circle('fill',pair.first,pair.second,Math2D.pieceRadius - 10);
+Color:setColorELA(self.color);
+love.graphics.circle('fill',pair.first,pair.second,Math2D.pieceRadius - 20);
 end
 function CrownPiece:DirectionByColor(x, y, newx, newy)
 _Logic_stack_depth = _Logic_stack_depth + 1;
@@ -643,7 +644,7 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_x'..'#'..scID, '_y'..'#'..scID, '_newx'..'#'..scID, '_newy'..'#'..scID},
 {x, y, newx, newy}, {});
 if not _logic_bindings_1 then return nil end;
-return {_dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_newy'..'#'..scID, _logic_bindings_1)};
+return {_dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newx'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_newy'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = DirectionByColor_1(x, y, newx, newy) or nil;
@@ -664,8 +665,8 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_color'..'#'..scID},
 {color}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_1), 0, '~=') then return nil end;
-return {_dep_logic.substitute_vars('_color'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.check(_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_1), 0, '~=') then return nil end;
+return {_dep_logic.substituteAtoms('_color'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = EnemyColor_1(color) or nil;

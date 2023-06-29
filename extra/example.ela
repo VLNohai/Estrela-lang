@@ -1,4 +1,0 @@
-requireELA('module')
-
-local a @MyClass = new MyClass(1, 2);
-_dep_utils.dump_print(a);

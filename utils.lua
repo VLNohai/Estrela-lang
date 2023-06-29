@@ -1,5 +1,4 @@
-utils = {}
-open = io.open;
+local utils = {}
 
 function utils.makeTrue(...)
     return true;
@@ -151,8 +150,17 @@ function utils.getModulePath(mainFilePath, requiredPath)
     return mainFilePath .. '/' .. requiredPath .. '.ela';
 end
 
-function utils.escapeQuotes(s)
-    return (s:gsub('[\'"]', '\\%0'))
+function utils.escapeQuotes(str)
+    local escapedStr = ""
+    for i = 1, #str do
+        local char = string.sub(str, i, i)
+        if char == '"' or char == "'" then
+            escapedStr = escapedStr .. '\\"';
+        else
+            escapedStr = escapedStr .. char
+        end
+    end
+    return escapedStr
 end
 
 function utils.getTypeAndDepth(varType)

@@ -1,4 +1,3 @@
-local _dep_linkedlist = require("deps.linkedlist");
 local _dep_overload = require("deps.overload");
 local _dep_types = require("deps.types");
 local _dep_utils = require("deps.utils");
@@ -95,6 +94,10 @@ if # self.road == 0 then
 temp = Math2D:getSquareCenter(DragAndDrop.currentPosition.first,DragAndDrop.currentPosition.second);
 else
 temp = Math2D:getSquareCenter(_dep_defaults.safe("Pair",_default_Pair,self.road[1]).first,_dep_defaults.safe("Pair",_default_Pair,self.road[1]).second);
+end
+
+if temp.first == - 1 or temp.second == - 1 then
+return ;
 end
 
 endX = temp.first;
@@ -220,34 +223,34 @@ return self.roadCache;
 end
 Game.allMovesCache = {};
 function Game:allPossibleMoves(piece)
+self.roadCache = {};
 if (Pair:new(1,piece.x,piece.y) == self.originalPosCache) then
 return self.allMovesCache;
 end
 
 self.originalPosCache = Pair:new(1,piece.x,piece.y);
 self.allMovesCache = {};
-THEN_WHAT_YOU_DRAW = '';
 local numberTable = self.board:convertToNumbers();
 local co = _dep_defaults.safe("thread",_default_thread,_dep_cast.cast(coroutine.create(piece.Turn),"thread"));
 local result = {coroutine.resume(co,piece,numberTable,piece.x,piece.y);};
 while result[2] do
 self.allMovesCache[# self.allMovesCache + 1] = Pair:new(1,_dep_defaults.safe("number",_default_number,_dep_cast.cast(result[2][4],"number")),_dep_defaults.safe("number",_default_number,_dep_cast.cast(result[2][5],"number")));
 result = {coroutine.resume(co);};
-THEN_WHAT_YOU_DRAW = THEN_WHAT_YOU_DRAW .. _dep_utils.dump(result);
 end
 
 return self.allMovesCache;
 end
 function Game:takePieces(piece)
-local file = io.open('markers','w');
 local pieceX = piece.x;
 local pieceY = piece.y;
 for i=1, # self.markers.road, 1 do
-file:write(_dep_utils.dump(_dep_defaults.safe("Pair",_default_Pair,self.markers.road[i])));
 if math.abs(pieceX - _dep_defaults.safe("Pair",_default_Pair,self.markers.road[i]).first) > 1 then
 local midX = (pieceX + _dep_defaults.safe("Pair",_default_Pair,self.markers.road[i]).first) / 2;
 local midY = (pieceY + _dep_defaults.safe("Pair",_default_Pair,self.markers.road[i]).second) / 2;
+if (_dep_cast.validate(piece.color,"Red") and _dep_cast.validate(_dep_defaults.safe("Piece",_default_Piece,_dep_defaults.safe("Piece_of_1",_default_Piece_of_1,self.board.pieces.fields[midY])[midX]).color,"Black")) or (_dep_cast.validate(piece.color,"Black") and _dep_cast.validate(_dep_defaults.safe("Piece",_default_Piece,_dep_defaults.safe("Piece_of_1",_default_Piece_of_1,self.board.pieces.fields[midY])[midX]).color,"Red")) then
 self.board.pieces.fields[midY][midX] = (_default_Piece or _dep_defaults.get("Piece"));
+end
+
 pieceX = _dep_defaults.safe("Pair",_default_Pair,self.markers.road[i]).first;
 pieceY = _dep_defaults.safe("Pair",_default_Pair,self.markers.road[i]).second;
 end
@@ -261,10 +264,7 @@ self.board.pieces.fields[piece.y][piece.x] = (_default_Piece or _dep_defaults.ge
 piece.x = newx;
 piece.y = newy;
 if (newy == 1) or (newy == 8) then
-local file = io.open('here we go again','w');
 local newCrownedPiece = CrownPiece:new(1,piece);
-file:write(_dep_utils.dump(newCrownedPiece));
-file:write(_dep_utils.dump(piece));
 self.board = self.board + newCrownedPiece;
 else
 self.board = self.board + piece;

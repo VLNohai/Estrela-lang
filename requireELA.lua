@@ -1,4 +1,4 @@
-local linker = {};
+local requireELA = {};
 
 if not Packageloaded then
 Packageloaded = true;
@@ -11,11 +11,12 @@ Utils = require('utils');
 MainFilePath = nil;
 end
 
-function linker.linkElaFile(path)
+function requireELA.linkElaFile(path)
     local filename = nil;
     local isMainFile = false;
     if not MainFilePath then
         filename = path:match(".*/(.-)%.");
+        if not filename then filename = path:match("(.-)%.") end;
         MainFilePath = Utils.pathTo(path);
         isMainFile = true;
     else
@@ -30,7 +31,7 @@ function linker.linkElaFile(path)
         local AST, exportedType = Parser.parse(Lexems, filename);
         if AST then
             local linkResult = Semantic.check(AST, path, exportedType);
-            if linkResult.safeToGenerate then
+            if linkResult and linkResult.safeToGenerate then
                 Generator.generate(AST, linkResult, MainFilePath, filename, isMainFile);
             end
             return linkResult;
@@ -38,4 +39,4 @@ function linker.linkElaFile(path)
     end
 end
 
-return linker;
+return requireELA;

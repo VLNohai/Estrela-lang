@@ -1,4 +1,3 @@
-local _dep_linkedlist = require("deps.linkedlist");
 local _dep_overload = require("deps.overload");
 local _dep_types = require("deps.types");
 local _dep_utils = require("deps.utils");
@@ -31,7 +30,7 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_n'..'#'..scID, {head = '_h'..'#'..scID, tail = '_t'..'#'..scID}, '_n'..'#'..scID, '_h'..'#'..scID},
 {index, table, n, rez}, {});
 if not _logic_bindings_1 then return nil end;
-return {_dep_logic.substitute_vars('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars({head = '_h'..'#'..scID, tail = '_t'..'#'..scID}, _logic_bindings_1), _dep_logic.substitute_vars('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_h'..'#'..scID, _logic_bindings_1)};
+return {_dep_logic.substituteAtoms('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms({head = '_h'..'#'..scID, tail = '_t'..'#'..scID}, _logic_bindings_1), _dep_logic.substituteAtoms('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_h'..'#'..scID, _logic_bindings_1)};
 
 end
 local function getnhelp_2(index, table, n, rez)
@@ -40,10 +39,10 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_index'..'#'..scID, {head = '_h'..'#'..scID, tail = '_t'..'#'..scID}, '_n'..'#'..scID, '_rez'..'#'..scID},
 {index, table, n, rez}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.check(_dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_n'..'#'..scID, _logic_bindings_1), '<') then return nil end;
-if not _dep_logic.unify("_new_index"..'#'..scID, _dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then return nil end;
-if not _dep_logic.unify_many({'_new_index'..'#'..scID, '_t'..'#'..scID, '_n'..'#'..scID, '_rez'..'#'..scID}, Prolog:getnhelp(_dep_logic.substitute_vars('_new_index'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_t'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
-return {_dep_logic.substitute_vars('_index'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars({head = '_h'..'#'..scID, tail = '_t'..'#'..scID}, _logic_bindings_1), _dep_logic.substitute_vars('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.check(_dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_n'..'#'..scID, _logic_bindings_1), '<') then return nil end;
+if not _dep_logic.unify("_new_index"..'#'..scID, _dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_1)+1, _logic_bindings_1) then return nil end;
+if not _dep_logic.unify_many({'_new_index'..'#'..scID, '_t'..'#'..scID, '_n'..'#'..scID, '_rez'..'#'..scID}, Prolog:getnhelp(_dep_logic.substituteAtoms('_new_index'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_t'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
+return {_dep_logic.substituteAtoms('_index'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms({head = '_h'..'#'..scID, tail = '_t'..'#'..scID}, _logic_bindings_1), _dep_logic.substituteAtoms('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = getnhelp_1(index, table, n, rez) or getnhelp_2(index, table, n, rez) or nil;
@@ -64,8 +63,8 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_table'..'#'..scID, '_n'..'#'..scID, '_rez'..'#'..scID},
 {table, n, rez}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.unify_many({1, '_table'..'#'..scID, '_n'..'#'..scID, '_rez'..'#'..scID}, Prolog:getnhelp(_dep_logic.substitute_vars(1, _logic_bindings_1), _dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
-return {_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.unify_many({1, '_table'..'#'..scID, '_n'..'#'..scID, '_rez'..'#'..scID}, Prolog:getnhelp(_dep_logic.substituteAtoms(1, _logic_bindings_1), _dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
+return {_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_n'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = getn_1(table, n, rez) or nil;
@@ -86,9 +85,9 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {'_table'..'#'..scID, '_x'..'#'..scID, '_y'..'#'..scID, '_rez'..'#'..scID},
 {table, x, y, rez}, {});
 if not _logic_bindings_1 then return nil end;
-if not _dep_logic.unify_many({'_table'..'#'..scID, '_y'..'#'..scID, '_rez_rec'..'#'..scID}, Prolog:getn(_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez_rec'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
-if not _dep_logic.unify_many({'_rez_rec'..'#'..scID, '_x'..'#'..scID, '_rez'..'#'..scID}, Prolog:getn(_dep_logic.substitute_vars('_rez_rec'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
-return {_dep_logic.substitute_vars('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substitute_vars('_rez'..'#'..scID, _logic_bindings_1)};
+if not _dep_logic.unify_many({'_table'..'#'..scID, '_y'..'#'..scID, '_rez_rec'..'#'..scID}, Prolog:getn(_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez_rec'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
+if not _dep_logic.unify_many({'_rez_rec'..'#'..scID, '_x'..'#'..scID, '_rez'..'#'..scID}, Prolog:getn(_dep_logic.substituteAtoms('_rez_rec'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)), _logic_bindings_1) then return nil end
+return {_dep_logic.substituteAtoms('_table'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_x'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_y'..'#'..scID, _logic_bindings_1), _dep_logic.substituteAtoms('_rez'..'#'..scID, _logic_bindings_1)};
 
 end
 local _logic_ret_val = getXY_1(table, x, y, rez) or nil;
@@ -109,7 +108,7 @@ local _logic_bindings_1 = _dep_logic.unify_many(
 {{ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, { head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}},
 {a, b}, {});
 if not _logic_bindings_1 then return nil end;
-return {_dep_logic.substitute_vars({ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, _logic_bindings_1), _dep_logic.substitute_vars({ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, _logic_bindings_1)};
+return {_dep_logic.substituteAtoms({ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, _logic_bindings_1), _dep_logic.substituteAtoms({ head = '_x'..'#'..scID, tail = {head = '_y'..'#'..scID, tail = {}}}, _logic_bindings_1)};
 
 end
 local _logic_ret_val = equalPair_1(a, b) or nil;

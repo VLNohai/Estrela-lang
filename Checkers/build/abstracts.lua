@@ -1,4 +1,3 @@
-local _dep_linkedlist = require("deps.linkedlist");
 local _dep_overload = require("deps.overload");
 local _dep_types = require("deps.types");
 local _dep_utils = require("deps.utils");
@@ -70,6 +69,10 @@ local squareLeftCornerY = Math2D:getOffsetToCenterVertically(Math2D.tableHeight)
 return Pair:new(1,squareLeftCornerX,squareLeftCornerY);
 end
 function Math2D:getSquareCenter(x,y)
+if x < 1 or x > 8 or y < 1 or y > 8 then
+return Pair:new(1,- 1,- 1);
+end
+
 local corner = Math2D:getSquareCorner(x,y);
 local centerX = corner.first + Math2D.tableWidth / 16;
 local centerY = corner.second + Math2D.tableHeight / 16;

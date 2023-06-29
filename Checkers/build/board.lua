@@ -1,4 +1,3 @@
-local _dep_linkedlist = require("deps.linkedlist");
 local _dep_overload = require("deps.overload");
 local _dep_types = require("deps.types");
 local _dep_utils = require("deps.utils");
@@ -122,6 +121,10 @@ board.pieces:set(piece.x,piece.y,piece);
 return board;
 end);
 _dep_overload.addOperator(Board,CrownPiece,"__add",function(board,piece)
+board.pieces:set(piece.x,piece.y,piece);
+return board;
+end);
+_dep_overload.addOperator(Board,Piece,"__add",function(board,piece)
 board.pieces:set(piece.x,piece.y,piece);
 return board;
 end);

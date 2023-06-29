@@ -6,10 +6,10 @@ local function PopulateBoard(board @Board) -> Board
             if (row + col) % 2 == 1 then
                 if row <= 3 then
                     local black @BlackPiece = new BlackPiece((col as number), (row as number));
-                    board = board + (black as Piece);
+                    board = board + black;
                 elseif row >= 6 then
                     local red @RedPiece = new RedPiece((col as number), (row as number));
-                    board = board + (red as Piece);
+                    board = board + red;
                 end
             end
         end
@@ -58,6 +58,7 @@ class Markers : Drawable() as
             else
                 temp = Math2D:getSquareCenter(this.road[1].first, this.road[1].second)
             end
+            if temp.first == -1 or temp.second == -1 then return; end;
             endX = temp.first;
             endY = temp.second;
             local index @number = 1;
@@ -161,14 +162,14 @@ class Game : Drawable() as
         return this.roadCache;
     end
 
-    allMovesCache @{Pair} = {}; 
+    allMovesCache @{Pair} = {};
     allPossibleMoves(piece @Piece) -> {Pair}
+        this.roadCache = {};
         if (new Pair(piece.x, piece.y) == this.originalPosCache) then
             return this.allMovesCache;
         end
         this.originalPosCache = new Pair(piece.x, piece.y);
         this.allMovesCache = {};
-        THEN_WHAT_YOU_DRAW = '';
 
         local numberTable @{{number}} = this.board:convertToNumbers();
         local co @thread = (coroutine.create(piece.Turn) as thread);
@@ -176,21 +177,22 @@ class Game : Drawable() as
         while result[2] do
             this.allMovesCache[#this.allMovesCache + 1] = new Pair((result[2][4] as number), (result[2][5] as number));
             result = {coroutine.resume(co)};
-            THEN_WHAT_YOU_DRAW = THEN_WHAT_YOU_DRAW ..  _dep_utils.dump(result);
         end
         return this.allMovesCache;
     end
 
     takePieces(piece @Piece)
-        local file = io.open('markers', 'w')
         local pieceX = piece.x;
         local pieceY = piece.y;
         for i=1, #this.markers.road, 1 do
-            file:write(_dep_utils.dump(this.markers.road[i]));
             if math.abs(pieceX - this.markers.road[i].first) > 1 then
                 local midX = (pieceX + this.markers.road[i].first)/2;
                 local midY = (pieceY + this.markers.road[i].second)/2;
-                this.board.pieces.fields[midY][midX] = nil;
+                if ((piece.color is Red) and (this.board.pieces.fields[midY][midX].color is Black)) or
+                   ((piece.color is Black) and (this.board.pieces.fields[midY][midX].color is Red))
+                then
+                    this.board.pieces.fields[midY][midX] = nil;
+                end
                 pieceX = this.markers.road[i].first;
                 pieceY = this.markers.road[i].second;
             end
@@ -204,10 +206,7 @@ class Game : Drawable() as
         piece.x = newx;
         piece.y = newy;
         if (newy == 1) or (newy == 8) then
-            local file = io.open('here we go again', 'w');
             local newCrownedPiece @CrownPiece = new CrownPiece(piece);
-            file:write(_dep_utils.dump(newCrownedPiece));
-            file:write(_dep_utils.dump(piece));
             this.board = this.board + newCrownedPiece;
         else
             this.board = this.board + piece;

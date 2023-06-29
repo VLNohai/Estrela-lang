@@ -2,68 +2,68 @@ local types = {
 ["Piece"] = {
 ["Drawable"] = true;
 };
+["CrownPiece"] = {
+["Piece"] = true;
+["Drawable"] = true;
+};
+["Green"] = {
+["Color"] = true;
+};
 ["Beige"] = {
 ["Color"] = true;
+};
+["Drawable"] = {
+};
+["Color"] = {
+};
+["Red"] = {
+["Color"] = true;
+};
+["Black"] = {
+["Color"] = true;
+};
+["Brown"] = {
+["Color"] = true;
+};
+["Board"] = {
+["Drawable"] = true;
+};
+["RedPiece"] = {
+["Piece"] = true;
+["Drawable"] = true;
+};
+["DragAndDrop"] = {
+};
+["PieceMatrix"] = {
+};
+["Pair"] = {
+};
+["Gold"] = {
+["Color"] = true;
+};
+["BlankPiece"] = {
+["Piece"] = true;
+["Drawable"] = true;
+};
+["Score"] = {
+["Drawable"] = true;
+};
+["BlackPiece"] = {
+["Piece"] = true;
+["Drawable"] = true;
+};
+["Game"] = {
+["Drawable"] = true;
+};
+["Math2D"] = {
 };
 ["Background"] = {
 ["Drawable"] = true;
 };
 ["Prolog"] = {
 };
-["Drawable"] = {
-};
-["BlackPiece"] = {
-["Drawable"] = true;
-["Piece"] = true;
-};
-["PieceMatrix"] = {
-};
-["Board"] = {
-["Drawable"] = true;
-};
 ["Markers"] = {
 ["Drawable"] = true;
-};
-["Color"] = {
-};
-["Game"] = {
-["Drawable"] = true;
-};
-["RedPiece"] = {
-["Drawable"] = true;
-["Piece"] = true;
-};
-["DragAndDrop"] = {
-};
-["Pair"] = {
-};
-["BlankPiece"] = {
-["Drawable"] = true;
-["Piece"] = true;
-};
-["Red"] = {
-["Color"] = true;
-};
-["Gold"] = {
-["Color"] = true;
-};
-["CrownPiece"] = {
-["Drawable"] = true;
-["Piece"] = true;
-};
-["Brown"] = {
-["Color"] = true;
-};
-["Score"] = {
-["Drawable"] = true;
-};
-["Math2D"] = {
-};
-["Black"] = {
-["Color"] = true;
-};
-["Green"] = {
-["Color"] = true;
 };
 
 }

@@ -1,6 +1,7 @@
 local utils = require('deps.utils');
 
 luaType = type;
+unpack = unpack or table.unpack;
 type = function (var)
     if luaType(var) == "table" and getmetatable(var) and getmetatable(var).typename then
         return getmetatable(var).typename;

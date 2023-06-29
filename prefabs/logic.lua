@@ -48,7 +48,7 @@ function logic.unify(a, b, bindings)
          if get_value(b, bindings) then
             return logic.unify(a, get_value(b, bindings), bindings);
          end
-         bindings[bindings[b]] = logic.substitute_vars(a, bindings);
+         bindings[bindings[b]] = logic.substituteAtoms(a, bindings);
       else
          allocate_new(b, a, bindings);
       end
@@ -58,7 +58,7 @@ function logic.unify(a, b, bindings)
          if get_value(a, bindings) then
             return logic.unify(get_value(a, bindings), b, bindings);
          end
-         bindings[bindings[a]] = logic.substitute_vars(b, bindings);
+         bindings[bindings[a]] = logic.substituteAtoms(b, bindings);
       else
          allocate_new(a, b, bindings);
       end
@@ -121,16 +121,16 @@ function logic.check(a, b, op)
    end
 end
 
-function logic.substitute_vars(value, bindings)
+function logic.substituteAtoms(value, bindings)
    if type(value) == "string" then
       local bound_value = get_value(value, bindings)
       if type(bound_value) == 'table' then
-         return logic.substitute_vars(bound_value, bindings);
+         return logic.substituteAtoms(bound_value, bindings);
       end
       return bound_value or value
    elseif type(value) == "table" then
-      local new_head = logic.substitute_vars(value.head, bindings)
-      local new_tail = logic.substitute_vars(value.tail, bindings)
+      local new_head = logic.substituteAtoms(value.head, bindings)
+      local new_tail = logic.substituteAtoms(value.tail, bindings)
       return {head = new_head, tail = new_tail}
    else
       return value
@@ -187,17 +187,6 @@ function logic.listOfListsToArray(lists)
       end
    end
    return lists;
-end
-
-function logic.stackDepth()
-   local depth = 0
-    local co = coroutine.running()
-
-    while co do
-        depth = depth + 1
-        co = debug.getinfo(co, {func = true}).func
-    end
-    return depth - 1;
 end
 
 return logic;

@@ -1,6 +1,7 @@
 local utils = require('utils');
-NodeType = require('tokens').NodeType;
-local linker = require('linker')
+local NodeType = require('tokens').NodeType;
+local TokenType = require('tokens').TokenType
+local linker = require('requireELA')
 local Semantic = {};
 
 local inbuildOperations = {
@@ -136,11 +137,6 @@ end
 local function level(token)
     if 
     token == TokenType.CARET_OPERATOR 
-    then
-        return 8;
-    elseif
-    token == TokenType.NOT_KEYWORD or
-    token == TokenType.UNARY_MINUS_OPERATORs
     then
         return 7;
     elseif 
@@ -278,20 +274,22 @@ local function recursivePolish(exp, stack, SemanticState)
                 firstType = 'table';
             end
         else
-            firstType = exp.exp.value.type;
+            firstType = exp.exp.value.type or 'any';
         end
         local key = exp.exp.op.symbol .. ':' .. firstType;
         local resultedType = inbuildOperations[key] or SemanticState.declaredOperations[key];
         if resultedType then
             exp.exp.type = resultedType;
+        elseif exp.exp.op.symbol == TokenType.NOT_KEYWORD then
+            exp.exp.type = 'boolean'
         elseif firstType == 'any' then
-            resultedType = 'any';
+            exp.exp.type = 'any';
         else
-            addNewError('Unary operator "' .. exp.exp.op.value .. '" not defined for type ' .. firstType, SemanticState);
+            addNewError('Unary operator "' .. exp.exp.op.value .. '" not defined for type ' .. firstType, SemanticState, exp.exp.value.line);
         end
     end
     SemanticState.polish[#SemanticState.polish+1] = exp.exp.type;
-    if exp.op and exp.op.node == NodeType.BINOP_NODE then
+    if exp.op and exp.op.node == NodeType.BINEXP_NODE then
         local symbol = exp.op.binop.symbol;
         if stack.top == nil then
             stack:push(symbol);
@@ -407,7 +405,7 @@ local function resolveIndexType(type, suffix, prefixId, SemanticState)
                     addNewError('Cannot access class fields with brackets', SemanticState);
                     type = 'any';
                 else
-                    addNewError('Cannot bracket index type ' .. type);
+                    addNewError('Cannot bracket index type ' .. type, SemanticState);
                     type = 'any';
                 end
             end
@@ -460,7 +458,7 @@ resolveExpType = function(exp, SemanticState)
 end
 
 local function validateTableType(table, varType, depth, SemanticState)
-    if table == 'nil' then return; end;
+    if table == 'nil' or (not table.fieldlist) then return; end;
     for index, field in ipairs(table.fieldlist) do
         local fieldType = resolveExpType(field.exp, SemanticState);
         if depth == 0 then
@@ -493,7 +491,7 @@ local function validateAssignedType(left, right, SemanticState)
             right.node = NodeType.DEFAULT_PLACEHOLDER_NODE;
             right.type = left.type;
         elseif left.type ~= expressionType then
-            addNewError('Wrong type "' .. expressionType .. '" assgined to "' .. left.type .. '"', SemanticState);
+            addNewError('Wrong type "' .. expressionType .. '" assgined to "' .. left.type .. '"', SemanticState, left.line);
         end
     else
         local _, depth = getTypeAndDepth(expressionType);
@@ -575,13 +573,13 @@ local function equivalentArgs(cst1, cst2)
     return true;
 end
 
-local function validate_declared_type(var, SemanticState)
+local function validatedeclaredtype(var, SemanticState)
     if var.type == nil then
         var.type = 'any';
     end
     local flatType = getTypeAndDepth(var.type);
     if (not basicTypes[flatType]) and (not SemanticState.declaredTypes[flatType]) then 
-        addNewError('Type "' .. flatType .. '" was not declared', SemanticState);
+        addNewError('Type "' .. flatType .. '" was not declared', SemanticState, var.line);
         var.type = 'any';
         return false;
     end
@@ -755,7 +753,7 @@ local function declareClass(classDecNode, SemanticState)
             if not stat.right then stat.right = {node = NodeType.EXPLIST_NODE} end;
             for index, field in ipairs(stat.left) do
                 field.type = field.type or 'any';
-                validate_declared_type(field, SemanticState);
+                validatedeclaredtype(field, SemanticState);
                 if not SemanticState.declaredTypes[classDecNode.id].fields[field.id] and (not SemanticState.declaredTypes[classDecNode.id].static[field.id]) then
                     if stat.right and stat.right[index] then
                         validateAssignedType(field, stat.right[index], SemanticState);
@@ -765,7 +763,7 @@ local function declareClass(classDecNode, SemanticState)
                             SemanticState.declaredTypes[classDecNode.id].static[field.id] = {type = field.type or 'any'};
                         end
                     elseif field.type ~= 'any' and (not (SemanticState.defaults[field.type] or SemanticState.globalDefaults[field.type])) then
-                        addNewError('No default value found for "' .. field.type .. '" ' .. 'in class "' .. classDecNode.id .. '"', SemanticState);
+                        addNewError('No default value found for "' .. field.type .. '" ' .. 'in class "' .. classDecNode.id .. '"', SemanticState, stat.line);
                     else
                         if field.type == 'any' then
                             stat.right[index] = { exp = { value = 'nil', type = 'nil'}, node = 33}
@@ -779,7 +777,7 @@ local function declareClass(classDecNode, SemanticState)
                         end
                     end
                 else
-                    addNewError('Field redeclaration for "' .. field.id .. '" in class ' .. classDecNode.id, SemanticState);
+                    addNewError('Field redeclaration for "' .. field.id .. '" in class ' .. classDecNode.id, SemanticState, stat.line);
                 end
             end
         end
@@ -795,7 +793,7 @@ local function checkDeclarationNode(currentNode, child, SemanticState)
         --NEW DECLARED Local
         child.right = child.right or {};
         if not SemanticState.currentScope[var.id] then
-            validate_declared_type(var, SemanticState);
+            validatedeclaredtype(var, SemanticState);
             SemanticState.currentScope[var.id] = {type = var.type};
         else
             if not var.type then var.type = 'any' end;
@@ -844,6 +842,9 @@ local function checkAssignmentNode(assignment, SemanticState)
                     else
                         local rightFlatType, rightDepth = getTypeAndDepth(rightType);
                         if rightDepth > 0 and rightFlatType == leftType then
+                            if rightDepth ~= depth then
+                                addNewError('Wrong type "' .. rightType .. '" assigned to "' .. leftType .. '"', SemanticState, assignment.line);
+                            end
                         else
                             addNewError('Wrong type "' .. rightType .. '" assigned to "' .. leftType .. '"', SemanticState, assignment.line);
                         end
@@ -922,7 +923,7 @@ local function checkIfReturnsOnAllPaths(ifNode)
             return 0;
         end
     end
-    if not ifNode.elseBranch.block then
+    if not ifNode.elseBranch then
         return 0;
     end
     if not ifNode.elseBranch.block.retstat.expressions then
@@ -1156,8 +1157,16 @@ end
 
 traverse = function(currentNode, SemanticState)
     if currentNode.node == NodeType.BLOCK_NODE then
+        if currentNode.isElseBranch then
+            local nextScope = {};
+            nextScope.father = SemanticState.currentScope;
+            SemanticState.currentScope = nextScope;
+        end
         validateNodeValue(currentNode.stats, currentNode, 'stats', SemanticState);
         validateNodeValue(currentNode.retstat, currentNode, 'retstat', SemanticState);
+        if currentNode.isElseBranch then
+            SemanticState.currentScope = SemanticState.currentScope.father;
+        end
         return;
     end
     for key, value in pairs(currentNode) do

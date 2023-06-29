@@ -17,6 +17,7 @@ local function fieldDecision(field)
         if field == '__unm' or field == '__len' then
             bType = 'nil';
             b = nil;
+            
         elseif luaType(b) == 'table' then
             if not getmetatable(b) then
                 bType = 'table';

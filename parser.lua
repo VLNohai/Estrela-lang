@@ -1,28 +1,16 @@
-TokenType = require('tokens').TokenType;
-NodeType = require('tokens').NodeType;
-Utils = require('utils');
+local TokenType = require('tokens').TokenType;
+local NodeType = require('tokens').NodeType;
+local utils = require('utils');
 
-Parser = {}
+local Parser = {}
 
-NODE = {}
-LEXEMS = {}
-INDEX = 1;
+local NODE = {}
+local LEXEMS = {}
+local INDEX = 1;
 
-MAX_INDEX = -1;
+local MAX_INDEX = -1;
 
 local fileName;
-
-local basicTypes = {
-    ['nil'] = true, 
-    ['boolean'] = true, 
-    ['number'] = true, 
-    ['string'] = true, 
-    ['table'] = true, 
-    ['function'] = true, 
-    ['userdata'] = true, 
-    ['thread'] = true,
-    ['any'] = true
-}
 
 function EQUALS(a, b)
     if a == b then
@@ -267,7 +255,7 @@ function NODE.CHUNK()
             return {stats = {}, retstat = {}};
         end
         print('syntax error in file "' .. fileName .. '"');
-        print('error at line ' .. LEXEMS[MAX_INDEX].line .. ', column: ' .. LEXEMS[MAX_INDEX].column);
+        print('error at line ' .. ((LEXEMS[MAX_INDEX] or {}).line or '?') .. ', column: ' .. ((LEXEMS[MAX_INDEX] or {}).column or '?'));
     end
 end
 
@@ -359,10 +347,12 @@ function NODE.STAT()
             branches[#branches+1] = {};
             branches[#branches].condition = branch[2];
             branches[#branches].block = branch[4];
+            branches[#branches].block.isElseBranch = true;
         end
         local elseBranch = nil;
-        if #elseExp.val then
+        if elseExp.val[2] then
             elseBranch = {block = elseExp.val[2]}
+            elseBranch.block.isElseBranch = true;
         end
         return {node = NodeType.IF_NODE, branches = branches, elseBranch = elseBranch};
     end
@@ -415,7 +405,7 @@ function NODE.STAT()
     local baseClass = {val = nil};
     local classBody = {val = nil};
     if SET(className, MATCH(TokenType.CLASS_KEYWORD, TokenType.IDENTIFIER)) and 
-    SET(baseClass, OPTIONAL(INDEX, TokenType.COLON_OPERATOR, TokenType.IDENTIFIER, NODE.CONSTRUCTORARGS)) and
+    SET(baseClass, OPTIONAL(INDEX, TokenType.COLON_MARK, TokenType.IDENTIFIER, NODE.CONSTRUCTORARGS)) and
     SET(classBody, MATCH(TokenType.AS_KEYWORD, NODE.CLASSBODY)) then
         local baseClassId = nil;
         local baseClassArgs = nil;
@@ -703,7 +693,7 @@ function NODE.FUNCNAME()
     local selfField = {value = nil};
     if SET(root, MATCH(TokenType.IDENTIFIER)) and 
     SET(fields, OPTIONAL_MULTIPLE(INDEX, TokenType.POINT_MARK, TokenType.IDENTIFIER)) and
-    SET(selfField, OPTIONAL(INDEX, TokenType.COLON_OPERATOR, TokenType.IDENTIFIER)) then
+    SET(selfField, OPTIONAL(INDEX, TokenType.COLON_MARK, TokenType.IDENTIFIER)) then
         local fieldIdList = {};
         fieldIdList[1] = root.val.value;
         if #fields.val > 0 then
@@ -750,7 +740,6 @@ function NODE.VAR()
     local matchedPrefix = {val = nil};
     local matchedSuffix = {val = nil};
     local matchedIndex = {val = nil};
-    local matchedType = {val = nil};
     if SET(isThis, OPTIONAL(INDEX, TokenType.THIS_KEYWORD, TokenType.POINT_MARK)) and
     SET(matchedPrefix, MATCH(NODE.PREFIX)) and 
     SET(matchedSuffix, OPTIONAL_MULTIPLE_LEAVE_LAST(INDEX, NODE.SUFFIX)) and 
@@ -777,7 +766,6 @@ function NODE.VAR()
     INDEX = indexCpy;
 
     local matchedId = {val = nil};
-    matchedType = {val = nil}
     local isThis = {val = nil};
     if SET(isThis, OPTIONAL(INDEX, TokenType.THIS_KEYWORD, TokenType.POINT_MARK)) and 
     SET(matchedId, MATCH(TokenType.IDENTIFIER)) then
@@ -785,7 +773,7 @@ function NODE.VAR()
         if #isThis.val > 0 then
             this = true;
         end
-        return {node = NodeType.VAR_NODE, id = matchedId.val.value, isThis = this};
+        return {node = NodeType.VAR_NODE, id = matchedId.val.value, isThis = this, line = matchedId.val.line};
     end
     INDEX = indexCpy;
 
@@ -841,7 +829,7 @@ function NODE.NAME()
         if matchedType.val then
             varType = utils.fromTypeNodeToString(matchedType.val[2]);
         end
-        return {node = NodeType.NAME_NODE, id = matchedId.val.value, type = varType};
+        return {node = NodeType.NAME_NODE, id = matchedId.val.value, type = varType, line = matchedId.val.line};
     end
     INDEX = indexCpy;
 
@@ -897,48 +885,48 @@ function NODE.VALUE()
 
     local matchedValue = {val = nil};
     if SET(matchedValue, MATCH(TokenType.NIL_KEYWORD)) then
-        return {type = 'nil', value = matchedValue.val.value};
+        return {type = 'nil', value = matchedValue.val.value, line = matchedValue.val.line};
     end 
     if SET(matchedValue, MATCH(TokenType.FALSE_KEYWORD)) then
-        return {type = 'boolean', value = matchedValue.val.value}
+        return {type = 'boolean', value = matchedValue.val.value, line = matchedValue.val.line}
     end 
     if SET(matchedValue, MATCH(TokenType.TRUE_KEYWORD)) then
-        return {type = 'boolean', value = matchedValue.val.value}
+        return {type = 'boolean', value = matchedValue.val.value, line = matchedValue.val.line}
     end
     if SET(matchedValue, MATCH(TokenType.NUMBER_VALUE)) then
-        return {type = 'number', value = matchedValue.val.value}
+        return {type = 'number', value = matchedValue.val.value, line = matchedValue.val.line}
     end 
     if SET(matchedValue, MATCH(TokenType.STRING_VALUE)) then
-        return {type = 'string', value = utils.escapeQuotes(matchedValue.val.value)}
+        return {type = 'string', value = utils.escapeQuotes(matchedValue.val.value), line = matchedValue.val.line}
     end
     if SET(matchedValue, MATCH(TokenType.TRIPLE_POINT_MARK)) then
-        return {type = 'triplePoint', value = matchedValue.val.value}
+        return {type = 'triplePoint', value = matchedValue.val.value, line = matchedValue.val.line}
     end
     if SET(matchedValue, MATCH(TokenType.NEW_KEYWORD, TokenType.IDENTIFIER, NODE.ARGS)) then
         return {type = matchedValue.val[2].value, value = matchedValue.val[2].value, node = NodeType.INSTANTIATION_NODE, id = matchedValue.val[2].value, args = matchedValue.val[3], line = matchedValue.val[1].line};
     end
     INDEX = indexCpy;
     if SET(matchedValue, MATCH(NODE.TABLECONSTRUCTOR)) then
-        return {type = 'table', value = matchedValue.val}
+        return {type = 'table', value = matchedValue.val, line = matchedValue.val.line}
     end
     INDEX = indexCpy;
     if SET(matchedValue, MATCH(NODE.FUNCTIONCALL)) then
-        return {valType = 'functioncall', value = matchedValue.val}
+        return {valType = 'functioncall', value = matchedValue.val, line = matchedValue.val.line}
     end
     INDEX = indexCpy;
 
     if SET(matchedValue, MATCH(NODE.VAR)) then
-        return {valType = 'var', value = matchedValue.val};
+        return {valType = 'var', value = matchedValue.val, line = matchedValue.val.line};
     end
     INDEX = indexCpy;
     
     if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.EXP, TokenType.RIGHT_PARAN_MARK)) then
-        return {node = NodeType.PARAN_EXP_NODE, exp = matchedValue.val[2]};
+        return {node = NodeType.PARAN_EXP_NODE, exp = matchedValue.val[2], line = matchedValue.val[1].line};
     end
     INDEX = indexCpy;
 
     if SET(matchedValue, MATCH(NODE.UNOP, NODE.VALUE)) then
-        return {node = NodeType.UNOP_EXP_NODE, value = matchedValue.val[2], op = matchedValue.val[1]};
+        return {node = NodeType.UNOP_EXP_NODE, value = matchedValue.val[2], op = matchedValue.val[1], line = matchedValue.val[2].line};
     end
     INDEX = indexCpy;
 
@@ -955,7 +943,7 @@ function NODE.VALUE()
     end
     INDEX = indexCpy;
 
-    return false
+    return false;
 end
 
 function NODE.INDEX()
@@ -980,7 +968,7 @@ function NODE.PREFIX()
 
     local matchedValue = {val = nil};
     if SET(matchedValue, MATCH(TokenType.LEFT_PARAN_MARK, NODE.EXP, TokenType.RIGHT_PARAN_MARK)) then
-        return {node = NodeType.EXP_NODE, exp = matchedValue.val[2]};
+        return {node = NodeType.EXP_NODE, exp = matchedValue.val[2], line = matchedValue.val[1].line};
     end
     INDEX = indexCpy;
 
@@ -1018,7 +1006,7 @@ function NODE.CALL()
     end
     INDEX = indexCpy;
 
-    if SET(matchedCall, MATCH(TokenType.COLON_OPERATOR, TokenType.IDENTIFIER, NODE.ARGS)) then
+    if SET(matchedCall, MATCH(TokenType.COLON_MARK, TokenType.IDENTIFIER, NODE.ARGS)) then
         return {node = NodeType.SELF_CALL_NODE, id = matchedCall.val[2].value, args = matchedCall.val[3]};
     end
     INDEX = indexCpy;
